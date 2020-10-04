@@ -221,31 +221,27 @@ void Chams::renderPlayer(Entity* player, bool dead) noexcept
                     if (dead == false) {
                         applyChams(config->chams["Enemies"].materials, health);
                     }
+
                 }
                 else {
-                    auto mat = config->chams["Enemies"].materials;
-                    for (int b = 0; b < mat.size(); b++) {
-                        auto m_material = &(mat.at(b));
-                        m_material->color = { 1, 1, 1 };
-                        m_material->color[3] = 1.0;
-                    }
+                    auto mat = config->chams["Targeted"].materials;
                     if (dead == false) {
                         applyChams(mat, health);
                     }
-
+                    interfaces->studioRender->forcedMaterialOverride(nullptr);
                     if (!record->shots.empty() && config->debug.showshots) {
-                        auto mat = config->chams["Enemies"].materials;
+                        auto newmat = config->chams["ShotAt"].materials;
                         for (auto shot : record->shots) {
-                            for (int b = 0; b < mat.size(); b++) {
-                                auto m_material = &(mat.at(b));
-                                m_material->color = { 1, 0, 1 };
-                                m_material->color[3] = 0.8f - (0.8f * ((memory->globalVars->currenttime - shot.simtime) / 4));
-                            }
 
-                            applyChams(mat, health, shot.matrix);
+                            for (int b = 0; b < newmat.size(); b++) {
+                                auto m_material = &(newmat.at(b));
+                                m_material->color[3] = m_material->color[3] - (m_material->color[3] * ((memory->globalVars->currenttime - shot.simtime) / 4.f));
+                            }
+                            //mat = newmat; /* Only Works if I do this? Why? I wish I knew. Debug this.*/
+                            applyChams(newmat, health, shot.matrix); 
                         }
                     }
-
+                    interfaces->studioRender->forcedMaterialOverride(nullptr);
                 }
 
 

@@ -22,3 +22,10 @@ void MinHook::hookAt(std::size_t index, void* fun) noexcept
     MH_CreateHook((*reinterpret_cast<void***>(base))[index], fun, &orig);
     originals[index] = uintptr_t(orig);
 }
+
+void MinHook::hook(void* fun) noexcept
+{
+    void* orig;
+    MH_CreateHook((*reinterpret_cast<void***>(base)), fun, &orig);
+    originals[0] = uintptr_t(orig);
+}

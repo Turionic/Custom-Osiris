@@ -1,6 +1,6 @@
 #pragma once
-
-struct UserCmd;
+#include "../SDK/UserCmd.h"
+//struct UserCmd;
 
 namespace Tickbase
 {
@@ -18,5 +18,14 @@ namespace Tickbase
 		int commandNumber{ 0 };
 		int ticks{ 0 };
 	};
+
+	struct ForceCMD {
+		UserCmd cmd;
+		bool setcmd = false;
+		bool dtPrevTick = false;
+	};
+
+	extern ForceCMD newCmd;
+
 	inline std::unique_ptr<Tick> tick;
 }

@@ -28,6 +28,8 @@ public:
 
 
 
+
+
     struct Color {
         std::array<float, 3> color{ 1.0f, 1.0f, 1.0f };
         bool rainbow{ false };
@@ -37,6 +39,11 @@ public:
     struct ColorToggle : public Color {
         bool enabled{ false };
     };
+
+
+    struct grief_ {
+        bool teamDamageOverlay{ false };
+    } grief;
 
     struct debug {
         ColorToggle desync_info;
@@ -51,9 +58,9 @@ public:
         bool weight{ false };
         bool showall{ false };
         bool fourfifty{ false };
-        
+        bool forcesetupBones{ false };
         bool showshots{ false };
-
+        bool aimbotcoutdebug{ false };
         //in
         struct {
             bool enabled{ false };
@@ -103,8 +110,9 @@ public:
         bool bullethits{ false };
         bool engineprediction{ true };
         bool movefix{ false };
-        bool Animfix{ true };
+        bool Animfix{ false };
         bool veloFix{ false };
+        bool forceSendOnShot{ false };
     } debug;
 
     struct Aimbot {
@@ -165,6 +173,8 @@ public:
         };
         int baimshots{ 8 };
         bool onshot{ false };
+        bool pelvisAimOnLBYUpdate{ false };
+        bool prioritizeEventBT{ false };
 
     };
     std::array<Aimbot, 40> aimbot;
@@ -195,7 +205,7 @@ public:
         int DeSyncMultiplierVariance{ 0 };
         bool bJitter{ false };
         int JitterRange{ 1 };
-        float JitterChance{ 0.1f };
+        int JitterChance{ 100 };
         bool currAng{ false };
         float pitchAngle{ 0.0f };
         bool Spin{ false };
@@ -221,6 +231,9 @@ public:
         float LBYValue{ 0 };
         bool forcesendafterLBY{ false };
         bool useAnimState{ false };
+        bool airstuckonLBY{ false };
+        bool disableLBYbreaking{ false };
+        bool blah{ true };
         int v1{ 120 };
         int v2{ 0 };
         int v3{ -1 };
@@ -340,6 +353,15 @@ public:
         float brightness{ 0.0f };
         int skybox{ 0 };
 
+
+        ColorToggle all;
+        
+
+
+        /*Renderables Window*/
+
+
+        ColorToggle stolenfromrifk;
         ColorToggle bulletTracers;
         ColorToggle bulletTracersEnemy;
         ColorToggle HitSkeleton;
@@ -349,14 +371,15 @@ public:
         ColorToggle world;
         ColorToggle PrecacheWorld;
         ColorToggle NonCachedWorld;
-        ColorToggle sky;  
+        ColorToggle sky;
         ColorToggle props;
         ColorToggle PrecacheProps;
         ColorToggle NonCached;
         ColorToggle smokecolor;
         ColorToggle NightMode; //ambient light
-        ColorToggle all;
-        
+
+        /*End Of Renderables Window*/
+
         bool matgrey{ false };
 
         bool deagleSpinner{ false };
@@ -469,6 +492,17 @@ public:
         bool fakePrime{ false };
         int killSound{ 0 };
         bool showall{ false };
+
+
+        struct {
+            bool enabled = { false };
+            bool toggled = { false };
+            int key = { 0 };
+
+        } testshit;
+        //bool testshit{ false };
+
+
 
         bool showDamagedone{ true };
 

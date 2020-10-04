@@ -131,7 +131,10 @@ DWORD FindPattern(const char* module_name, const BYTE* mask, const char* mask_st
 	return 0;
 }
 
-void UTIL_ClipTraceToPlayers(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, TraceFilter* filter, Trace* tr)noexcept
+//interfaces->engineTrace->clipRayToEntity({ localEyePosition, localEyePosition + direction }, 0x4600400B, entity, trace);
+
+
+void AutoWall::UTIL_ClipTraceToPlayers(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, TraceFilter* filter, Trace* tr)noexcept
 {
 	static DWORD dwAddress = FindPattern("client.dll", (BYTE*)"\x53\x8B\xDC\x83\xEC\x08\x83\xE4\xF0\x83\xC4\x04\x55\x8B\x6B\x04\x89\x6C\x24\x04\x8B\xEC\x81\xEC\x00\x00\x00\x00\x8B\x43\x10", "xxxxxxxxxxxxxxxxxxxxxxxx????xxx");
 
@@ -152,6 +155,31 @@ void UTIL_ClipTraceToPlayers(const Vector& vecAbsStart, const Vector& vecAbsEnd,
 	}
 }
 
+static void UTIL_ClipTraceToPlayers(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, TraceFilter* filter, Trace* tr)noexcept
+{
+
+	static DWORD dwAddress = FindPattern("client.dll", (BYTE*)"\x53\x8B\xDC\x83\xEC\x08\x83\xE4\xF0\x83\xC4\x04\x55\x8B\x6B\x04\x89\x6C\x24\x04\x8B\xEC\x81\xEC\x00\x00\x00\x00\x8B\x43\x10", "xxxxxxxxxxxxxxxxxxxxxxxx????xxx");
+
+	if (!dwAddress)
+		return;
+
+	_asm
+	{
+		MOV		EAX, filter
+		LEA		ECX, tr
+		PUSH	ECX
+		PUSH	EAX
+		PUSH	mask
+		LEA		EDX, vecAbsEnd
+		LEA		ECX, vecAbsStart
+		CALL	dwAddress
+		ADD		ESP, 0xC
+	}
+}
+
+
+//#include "../Debug.h"
+//#include "../Config.h"
 bool SimulateFireBullet(Entity* local, Entity* weapon, FireBulletData& data, Vector& wallbangVector, float minDamage = 0.0f)noexcept
 {
 	if (!localPlayer || !local || !weapon)
@@ -169,7 +197,15 @@ bool SimulateFireBullet(Entity* local, Entity* weapon, FireBulletData& data, Vec
 	}
 
 	data.current_damage = static_cast<float>(wpn_data->damage);
-	while ((data.penetrate_count > 0) && (data.current_damage >= 1.0f) && (data.current_damage >= minDamage))
+	/*
+	if (config->debug.aimbotcoutdebug) {
+		Debug::LogItem item;
+		item.PrintToScreen = false;
+		item.text.push_back(std::wstring{ L"AutoWall [197]: Default Weapon Damage Is: " + std::to_wstring(data.current_damage) });
+		Debug::LOG_OUT.push_front(item);
+	}
+	*/
+	while ((data.penetrate_count > 0) && (data.current_damage >= 1.0f) /*&& ((data.current_damage >= minDamage) || (minDamage == 0.0f))*/)
 	{
 		data.trace_length_remaining = wpn_data->range - data.trace_length;
 		Vector End_Point = data.src + data.direction * data.trace_length_remaining;
@@ -182,10 +218,27 @@ bool SimulateFireBullet(Entity* local, Entity* weapon, FireBulletData& data, Vec
 			data.trace_length += data.enter_trace.fraction * data.trace_length_remaining;
 			data.current_damage *= pow(wpn_data->rangeModifier, data.trace_length * 0.002f);
 			ScaleDamage(data.enter_trace.hitgroup, data.enter_trace.entity, wpn_data->armorRatio, data.current_damage);
+			/*
+			if (config->debug.aimbotcoutdebug) {
+				Debug::LogItem item;
+				item.PrintToScreen = false;
+				item.text.push_back(std::wstring{ L"AutoWall [220]: data.current_damage = " + std::to_wstring(data.current_damage) });
+				Debug::LOG_OUT.push_front(item);
+			}
+			*/
 			return true;
 		}
 		if (!HandleBulletPenetration(wpn_data, data, false, wallbangVector, minDamage))
 			break;
+		/*
+		if (config->debug.aimbotcoutdebug) {
+			Debug::LogItem item;
+			item.PrintToScreen = false;
+			item.text.push_back(std::wstring{ L"AutoWall [230]: data.current_damage = " + std::to_wstring(data.current_damage) });
+			Debug::LOG_OUT.push_front(item);
+		}
+		*/
+
 	}
 	return false;
 }
@@ -278,7 +331,7 @@ bool HandleBulletPenetration(WeaponInfo* wpn_data, FireBulletData& data, bool ex
 		return false;
 	if (lost_damage >= 0.0f)
 		data.current_damage -= lost_damage;
-	if ((data.current_damage < 1.0f) || (data.current_damage < minDamage))
+	if ((data.current_damage < 1.0f))
 		return false;
 
 	// only updated on first wallbang
@@ -355,8 +408,9 @@ float AutoWall::Damage(const Vector& point, Vector& wallbangVector, float minDam
 	Math::AngleVectors(angles, &data.direction);
 	Math::VectorNormalize(data.direction);
 
-	if (SimulateFireBullet(localPlayer.get(), localPlayer->getActiveWeapon(), data, wallbangVector, minDamage))
+	if (SimulateFireBullet(localPlayer.get(), localPlayer->getActiveWeapon(), data, wallbangVector, minDamage)) {
 		return data.current_damage;
+	}
 
 	return 0.f;
 }
@@ -377,6 +431,24 @@ float AutoWall::EntityDamage(Entity* entity, const Vector& point) noexcept
 
 	return 0.f;
 }
+
+
+float AutoWall::EntityDamageFromVector(Entity* entity, const Vector& point, const Vector& Pos) noexcept
+{
+	auto data = FireBulletData(Pos, entity);
+	Vector wallbangVector = {};
+	Vector angles;
+	angles = Math::CalcAngle(data.src, point);
+	Math::AngleVectors(angles, &data.direction);
+	Math::VectorNormalize(data.direction);
+
+	if (SimulateFireBullet(entity, entity->getActiveWeapon(), data, wallbangVector))
+		return data.current_damage;
+
+	return 0.f;
+}
+
+
 bool AutoWall::CanHitFloatingPoint(const Vector& point, const Vector& source, Vector& wallbangPos)noexcept
 {
 	aim = point;

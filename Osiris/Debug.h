@@ -18,6 +18,9 @@ namespace Debug{
 		//int id = 0;
 		std::vector<std::wstring> text = {};
 		float time_of_creation = 0.0f;
+		bool PrintToScreen = true;
+		bool PrintToConsole = true;
+		std::array<int, 3> color = { 255,255,255 };
 	};
 
 

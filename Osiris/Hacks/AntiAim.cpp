@@ -101,6 +101,8 @@ bool AntiAim::LBY_UPDATE(Entity* entity = localPlayer.get(), int TicksToPredict 
 		if (TicksToPredict == 0) { LocalPlayerAA.lbyNextUpdate = servertime + 1.1f; lbyNextUpdated = true;}
 		return true;
 	}
+
+	return false;
 }
 
 
@@ -252,23 +254,32 @@ float AntiAim::ToWall() noexcept{
 	//float minFraction = 2.0f;
 	// Autowall->EntityDamage(Resolver::TargetedEntity, eyePos);
 	Entity* entity;
-	if (!Resolver::TargetedEntity || Resolver::TargetedEntity->isDormant() || !Resolver::TargetedEntity->isAlive()) {
+	if (!Resolver::TargetedEntity || Resolver::TargetedEntity->isDormant() || !Resolver::TargetedEntity->isAlive() || Resolver::TargetedEntity == localPlayer.get() || localPlayer->velocity().length2D() > 80) {
 		return 180; // Will make this check for other entities at some point
 	}
 	else {
 		entity = Resolver::TargetedEntity;
 	}
 
+	Vector ObbMin = Resolver::TargetedEntity->origin();
+	Vector ObbMax = Resolver::TargetedEntity->origin();
+	ObbMin += Resolver::TargetedEntity->getCollideable()->obbMins().x * 2.0f;
+	ObbMax += Resolver::TargetedEntity->getCollideable()->obbMaxs().x * 2.0f;
+	ObbMin += Resolver::TargetedEntity->getCollideable()->obbMins().y * 2.0f;
+	ObbMax += Resolver::TargetedEntity->getCollideable()->obbMaxs().y * 2.0f;
+	ObbMin.z = ObbMax.z;
+
 	float offset = 180;
-	float minDamage = Autowall->EntityDamage(Resolver::TargetedEntity, localPlayer->getRotatedBonePos((offset * 22.0) / (180.0 * 7.0)));
+
+	float minDamage = ((Autowall->EntityDamageFromVector(Resolver::TargetedEntity, localPlayer->getRotatedBonePos((offset * 22.0) / (180.0 * 7.0)), ObbMin) + Autowall->EntityDamageFromVector(Resolver::TargetedEntity, localPlayer->getRotatedBonePos((offset * 22.0) / (180.0 * 7.0)), ObbMax)) / 2);
 	if (minDamage < 20) {
 		return 180;
 	}
 
 	for (int i = 90; i < 270; i += 45) {
 		Vector point = localPlayer->getRotatedBonePos((i * 22.0) / (180.0 * 7.0));
-		float Damage = Autowall->EntityDamage(Resolver::TargetedEntity, point);
-		if (Damage < minDamage) {
+		float Damage = ((Autowall->EntityDamageFromVector(Resolver::TargetedEntity, point, ObbMin) + Autowall->EntityDamageFromVector(Resolver::TargetedEntity, point, ObbMax))/2);
+		if (Damage < 5) {
 			minDamage = Damage;
 			offset = i;
 		}
@@ -279,11 +290,14 @@ float AntiAim::ToWall() noexcept{
 		return 180;
 	}
 
-	if (offset > 180)
-		offset -= 180;
-	else if (offset < 180) {
-		offset *= -1;
+	if (offset > 180) {
+		offset = (offset - 180) + -180;
 	}
+	if (offset < -180) {
+		offset = (offset + 180) + 180;
+	}
+	//else if (offset < 180) {
+	//}
 
 
 	return offset;
@@ -293,7 +307,7 @@ float AntiAim::ToWall() noexcept{
 
 }
 
-
+#include "Misc.h"
 
 
 void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& currentViewAngles, bool& sendPacket) noexcept
@@ -314,7 +328,6 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 		 
 		LocalPlayerAA.real = cmd->viewangles;
 		
-		LocalPlayerAA.real.y += 180;
 
 
 
@@ -341,19 +354,20 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 
         if (config->antiAim.yaw && (currentViewAngles == cmd->viewangles)) {
 
-			if (config->antiAim.pitch && cmd->viewangles.x == currentViewAngles.x)
+			if (config->antiAim.pitch && (cmd->viewangles.x == currentViewAngles.x))
 				cmd->viewangles.x = config->antiAim.pitchAngle;
 
-			float angle = 0.0f;
+			float angle = config->antiAim.manYaw;
 			// DESYNC
-			if (!config->antiAim.yaw) {
-				cmd->viewangles.y += angle;
+			//if (!config->antiAim.yaw) {
+			//	cmd->viewangles.y += angle;
+			//}
+
+			if (config->antiAim.toWall) {
+				LocalPlayerAA.real.y += ToWall();
 			}
-
-			if (config->antiAim.toWall && !config->antiAim.KeyYaw) {
-				angle = ToWall();
-
-
+			else {
+				LocalPlayerAA.real.y += angle;
 			}
 
 
@@ -418,21 +432,23 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 			*/
 
 
-			if (LBY_UPDATE(localPlayer.get())) /*&& (localPlayer->velocity().length2D() < 2.0f)*/ {
+			if (LBY_UPDATE(localPlayer.get()) && !config->antiAim.disableLBYbreaking) /*&& (localPlayer->velocity().length2D() < 2.0f)*/ {
 
 
 				cmd->viewangles.y = LocalPlayerAA.real.y + (config->antiAim.v1 * (side ? 1 : -1));
 				if (interfaces->engine->getNetworkChannel()->chokedPackets < 8) {
 					sendPacket = false;
 				}
+				if (config->antiAim.airstuckonLBY) { /*I Wonder what this will do*/
+					cmd->tickCount = INT_MAX;
+					cmd->commandNumber = INT_MAX;
+				}
 			}
 			else {
-
 
 				if (AntiAim::lbyNextUpdatedPrevtick && !AntiAim::lbyNextUpdated && config->antiAim.forcesendafterLBY) {
 					sendPacket = true;
 				}
-
 
 				float v3;
 				if (config->antiAim.v3 == -1) {
@@ -440,15 +456,36 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 				}
 				else {
 					v3 = config->antiAim.v3;
+				} 
+
+				if (config->antiAim.bJitter) {
+					//float chance = config->antiAim.JitterChance;
+
+
+					std::srand(std::rand());
+
+					int chance = std::rand() % 101;
+					if (chance < config->antiAim.JitterChance) {
+						if (config->antiAim.JitterRange > 0) {
+							v3 = (std::rand() % config->antiAim.JitterRange) - (config->antiAim.JitterRange / 2);
+						}
+						else {
+							if (v3 > 0) {
+								v3 = (float)(std::rand() % (int)(v3*2.f)) - v3;
+							}
+						}
+					}
+					
+					//v3 = (float)(rand() % (int)(v3 * 2.f)) - v3;
 				}
 
-				if (b_sendPacket) {
+				if (b_sendPacket || (Misc::LastSend == 0) || (Misc::LastSend == 2)) {
 					// (localPlayer->getMaxDesyncAngle() * (side ? 1 : -1))
 					cmd->viewangles.y = LocalPlayerAA.real.y - (config->antiAim.v5 * (config->antiAim.v2 + (v3 * (side ? 1 : -1))));
 
 
 				}
-				else if (!b_sendPacket) {
+				else if (!b_sendPacket || (Misc::LastSend == 1) ) {
 					cmd->viewangles.y = LocalPlayerAA.real.y - (config->antiAim.v4 * (side ? 1 : -1));
 				}
 

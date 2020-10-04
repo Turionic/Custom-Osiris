@@ -10,6 +10,8 @@
 #include "Walkbot.h"
 #include "Hacks/StreamProofESP.h"
 #include "Debug.h"
+#include "Grief.h"
+
 EventListener::EventListener() noexcept
 {
     assert(interfaces);
@@ -50,6 +52,7 @@ void EventListener::fireGameEvent(GameEvent* event)
         Walkbot::SetupTime(event);
         break;
     case fnv::hash("player_death"):
+        Grief::CalculateTeamDamage(event);
         SkinChanger::updateStatTrak(*event);
         SkinChanger::overrideHudIcon(*event);
         Misc::killMessage(*event);
@@ -60,6 +63,7 @@ void EventListener::fireGameEvent(GameEvent* event)
         StreamProofESP::bulletTracer(event);
         break;
     case fnv::hash("player_hurt"):
+        Grief::CalculateTeamDamage(event);
         //StreamProofESP::bulletTracer(event); <---- Make Happen only on damage delt? As indicator?
         Misc::AttackIndicator(event);
         Misc::playHitSound(*event);

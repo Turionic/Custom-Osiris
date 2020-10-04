@@ -69,6 +69,7 @@ void GUI::render() noexcept
         renderConfigWindow();
         renderRenderablesWindow();
         renderDebugWindow();
+        renderGriefWindow();
     } else {
         renderGuiStyle2();
     }
@@ -128,8 +129,25 @@ void GUI::renderMenuBar() noexcept
         menuBarItem("Config", window.config);
         menuBarItem("Renderables", window.renderables);
         menuBarItem("Debug", window.debug);
+        menuBarItem("Grief", window.grief);
         ImGui::EndMainMenuBar();   
     }
+}
+
+void GUI::renderGriefWindow(bool contentOnly) noexcept {
+    if (!contentOnly) {
+        if (!window.grief)
+            return;
+
+        ImGui::SetNextWindowSize({ 800.0f, 0.0f });
+        ImGui::Begin("Grief", &window.grief, windowFlags);
+    }
+
+    ImGui::Checkbox("Team Damage Chart", &config->grief.teamDamageOverlay);
+
+    ImGui::Columns(1);
+    if (!contentOnly)
+        ImGui::End();
 }
 
 void GUI::renderRenderablesWindow(bool contentOnly) noexcept {
@@ -152,6 +170,7 @@ void GUI::renderRenderablesWindow(bool contentOnly) noexcept {
     ImGui::Text("--- Custom ImGui ESP --- ");
     ImGuiCustom::colorPicker("ESP Bullet Hits", config->visuals.espbulletTracers);
     ImGuiCustom::colorPicker("Draw Skeleton On Hit", config->visuals.HitSkeleton);
+    ImGuiCustom::colorPicker("Enemy Shot Esp", config->visuals.stolenfromrifk);
     ImGui::Text("--- Special Chams --- ");
     ImGui::Checkbox("Cham Enemy Matrix on Aimbot Shot", &config->debug.showshots);
 
@@ -233,6 +252,7 @@ void GUI::renderDebugWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Base Engine Prediction", &config->debug.engineprediction);
     ImGui::Checkbox("Ghetto Move Fix", &config->debug.movefix);
     ImGui::Checkbox("Ghetto Lag Comp", &config->debug.veloFix);
+    ImGui::Checkbox("Force SetupBones Aimbot", &config->debug.forcesetupBones);
     ImGui::Checkbox("450", &config->debug.fourfifty);
 
     ImGuiCustom::colorPicker("Custom HUD", config->debug.CustomHUD);
@@ -297,6 +317,8 @@ void GUI::renderDebugWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Tracer", &config->debug.tracer);
     ImGui::Checkbox("Show bullet hits", &config->debug.bullethits);
     ImGui::NextColumn();
+    ImGui::Checkbox("Aimbot Debug", &config->debug.aimbotcoutdebug);
+    ImGui::Checkbox("Force Send Packet On Shot", &config->debug.forceSendOnShot);
     if (!contentOnly)
         ImGui::End();
 
@@ -430,6 +452,8 @@ void GUI::renderAimbotWindow(bool contentOnly) noexcept
     hotkey(config->aimbot[currentWeapon].baimkey);
     ImGui::SliderInt("Baim on Missed Shots", &config->aimbot[currentWeapon].baimshots, 0, 12);
     ImGui::Checkbox("OnShot", &config->aimbot[currentWeapon].onshot);
+    ImGui::Checkbox("Pelvis Aim (On LBY Update)", &config->aimbot[currentWeapon].pelvisAimOnLBYUpdate);
+    ImGui::Checkbox("Prioritize Event Backtrack", &config->aimbot[currentWeapon].prioritizeEventBT);
     ImGui::Combo("Bone ", &config->aimbot[currentWeapon].bone, "Nearest\0Best damage\0Head\0Neck\0Sternum\0Chest\0Stomach\0Pelvis\0HitBox\0");
     ImGuiCustom::MultiCombo("Hitboxes", Multipoints::hitBoxes, config->aimbot[currentWeapon].hitboxes, Multipoints::HITBOX_MAX);
     ImGui::NextColumn();
@@ -456,23 +480,7 @@ void GUI::renderAimbotWindow(bool contentOnly) noexcept
     if (!contentOnly)
         ImGui::End();
 }
-/*
-void GUI::renderAntiAimWindow(bool contentOnly) noexcept
-{
-    if (!contentOnly) {
-        if (!window.antiAim)
-            return;
-        ImGui::SetNextWindowSize({ 0.0f, 0.0f });
-        ImGui::Begin("Anti aim", &window.antiAim, windowFlags);
-    }
-    ImGui::Checkbox("Enabled", &config->antiAim.enabled);
-    ImGui::Checkbox("##pitch", &config->antiAim.pitch);
-    ImGui::SameLine();
-    ImGui::SliderFloat("Pitch", &config->antiAim.pitchAngle, -89.0f, 89.0f, "%.2f");
-    ImGui::Checkbox("Yaw", &config->antiAim.yaw);
-    if (!contentOnly)
-        ImGui::End();
-}*/
+
 void GUI::renderAntiAimWindow(bool contentOnly) noexcept
 {
     if (!contentOnly) {
@@ -488,6 +496,12 @@ void GUI::renderAntiAimWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Yaw", &config->antiAim.yaw);
     ImGui::SameLine();
     ImGui::SliderFloat("Yaw Value", &config->antiAim.manYaw, -180.0f, 180.0f, "%.2f");
+
+    ImGui::Checkbox("Jitter", &config->antiAim.bJitter);
+    ImGui::SameLine();
+    ImGui::SliderInt("Jitter Range", &config->antiAim.JitterRange, 0, 180, "%d");
+    ImGui::SliderInt("Jitter Chance", &config->antiAim.JitterChance, 0, 100, "%d");
+
     ImGui::SliderFloat("Clamped Value", &config->antiAim.clamped, -180.0f, 180.0f, "%.2f");
     ImGui::SliderFloat("Manual Desync MaxDesync Set", &config->antiAim.DeSyncManualSet, -180.0f, 180.0f, "%.2f");
     ImGui::Checkbox("Sendpacket Swap", &config->antiAim.swapPacket);
@@ -545,14 +559,17 @@ void GUI::renderAntiAimWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Legit AA", &config->antiAim.legitaa);
     ImGui::Checkbox("Legit AA Test", &config->antiAim.legitaatest);
     */
-
+    
     ImGui::InputInt("v1", &config->antiAim.v1, -360, 360);
     ImGui::InputInt("v2", &config->antiAim.v2, -360, 360);
     ImGui::InputInt("v3", &config->antiAim.v3, -360, 360);
     ImGui::InputInt("v4", &config->antiAim.v4, -360, 360);
     ImGui::InputInt("v5", &config->antiAim.v5, -360, 360);
+    ImGui::Checkbox("Disable LBY Breaking", &config->antiAim.disableLBYbreaking);
     ImGui::Checkbox("Force SendPacket Tick After LBY Update", &config->antiAim.forcesendafterLBY);
+    ImGui::Checkbox("Airstuck on LBY Update", &config->antiAim.airstuckonLBY);
     ImGui::Checkbox("Use AnimState Velocity for LBY Check", &config->antiAim.useAnimState);
+    ImGui::Checkbox("blah", &config->antiAim.blah);
     ImGui::Checkbox("Micro-move", &config->antiAim.micromove);
 
 
@@ -798,7 +815,7 @@ void GUI::renderChamsWindow(bool contentOnly) noexcept
 
     static int material = 1;
 
-    if (ImGui::Combo("", &currentCategory, "Allies\0Enemies\0Planting\0Defusing\0Local player\0Weapons\0Hands\0Backtrack\0Sleeves\0Desync\0"))
+    if (ImGui::Combo("", &currentCategory, "Allies\0Enemies\0Planting\0Defusing\0Local player\0Weapons\0Hands\0Backtrack\0Sleeves\0Desync\0Targeted\0ShotAt\0NULL\0"))
         material = 1;
 
     ImGui::PopID();
@@ -813,7 +830,7 @@ void GUI::renderChamsWindow(bool contentOnly) noexcept
     ImGui::SameLine();
     ImGui::Text("%d", material);
 
-    constexpr std::array categories{ "Allies", "Enemies", "Planting", "Defusing", "Local player", "Weapons", "Hands", "Backtrack", "Sleeves", "Desync" };
+    constexpr std::array categories{ "Allies", "Enemies", "Planting", "Defusing", "Local player", "Weapons", "Hands", "Backtrack", "Sleeves", "Desync", "Targeted", "ShotAt", "NULL" };
 
     ImGui::SameLine();
 
@@ -1554,6 +1571,9 @@ void GUI::renderMiscWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Airstuck", &config->misc.airstuck);
     ImGui::SameLine();
     hotkey(config->misc.airstuckkey);
+    ImGui::Checkbox("Test Shit", &config->misc.testshit.enabled);
+    ImGui::SameLine();
+    hotkey(config->misc.testshit.key);
     ImGui::Checkbox("Sniper crosshair", &config->misc.sniperCrosshair);
     ImGui::Checkbox("Recoil crosshair", &config->misc.recoilCrosshair);
     ImGui::Checkbox("Auto pistol", &config->misc.autoPistol);
@@ -1573,8 +1593,7 @@ void GUI::renderMiscWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Double Tap", &config->misc.dt.enabled);
     ImGui::SameLine();
     hotkey(config->misc.dt.dtKey);
-    ImGui::SameLine();
-    ImGui::SliderInt("", &config->misc.dt.doubletapspeed, 0, 3, "Speed: %d");
+    ImGui::SliderInt("", &config->misc.dt.doubletapspeed, 1, 5, "Speed: %d");
 
 
     ImGui::NextColumn();

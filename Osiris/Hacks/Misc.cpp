@@ -181,7 +181,7 @@ void Misc::watermark() noexcept
             interfaces->surface->setTextColor(config->misc.watermark.color);
 
         interfaces->surface->setTextPosition(5, 0);
-        interfaces->surface->printText(L"Legit Build v0.003");
+        interfaces->surface->printText(L"Harpoon Build 1.0");
 
         static auto frameRate = 1.0f;
         frameRate = 0.9f * frameRate + 0.1f * memory->globalVars->absoluteFrameTime;
@@ -1065,6 +1065,105 @@ float Misc::freezeEnd = 0.0f;
 float Misc::lastUpdate = 0.0f;
 int Misc::damagedone = 0;
 #include "StreamProofESP.h"
+
+UserCmd cmdStore;
+int Misc::LastSend = -1;
+
+#include "AntiAim.h"
+void Misc::WillThisWork(UserCmd* cmd, bool &sendPacket) {
+    if (!config->misc.testshit.enabled || !localPlayer || !localPlayer->isAlive() || localPlayer->isDormant())
+        return;
+
+    if ((cmd->buttons & UserCmd::IN_ATTACK)) {
+        return;
+    }
+
+
+
+
+    if (GetAsyncKeyState(config->misc.testshit.key) & 1) {
+            config->misc.testshit.toggled = !config->misc.testshit.toggled;
+    }
+    
+    if (!config->misc.testshit.toggled)
+        return;
+
+
+    if (localPlayer->velocity().length2D() > 6.0f) {
+        sendPacket = interfaces->engine->getNetworkChannel()->chokedPackets >= config->misc.chokedPackets;
+
+        if (sendPacket)
+            return;
+
+        if ((interfaces->engine->getNetworkChannel()->chokedPackets == (config->misc.chokedPackets - 1))) {
+            cmd->tickCount = INT_MAX;
+            cmd->commandNumber = INT_MAX;
+        }
+
+        return;
+    }
+
+
+    if ((interfaces->engine->getNetworkChannel()->chokedPackets == 0)) {
+        cmdStore = *cmd;
+    }
+    else if (interfaces->engine->getNetworkChannel()->chokedPackets == 1) {
+        cmd->tickCount = INT_MAX;
+        cmd->commandNumber = INT_MAX;
+    }
+
+
+    if (!(cmd->buttons & UserCmd::IN_ATTACK)) {
+        sendPacket = interfaces->engine->getNetworkChannel()->chokedPackets >= config->misc.chokedPackets;
+
+        if (sendPacket) {
+            LastSend = 0;
+            return;
+        }
+        
+        if ((interfaces->engine->getNetworkChannel()->chokedPackets == 0) || (LastSend == 2)) {
+            if (LastSend == 0) {
+                    cmd->tickCount -= 1;
+                    cmd->commandNumber -= 1;
+
+                sendPacket = true;
+                LastSend = 1;
+                return;
+            }
+            else if(LastSend == 1){
+
+                    cmd->tickCount -= 1;
+                    cmd->commandNumber -= 1;
+
+                sendPacket = false;
+                LastSend = 2;
+            }
+            else {
+
+                    if (config->antiAim.blah){
+                        cmd->tickCount = INT_MAX;
+                        cmd->commandNumber = INT_MAX;
+                    }
+                    else {
+                        cmd->tickCount -= 1;
+                        cmd->commandNumber -= 1;
+                    }
+                LastSend = -1;
+            }
+        }
+        else if ((interfaces->engine->getNetworkChannel()->chokedPackets == (config->misc.chokedPackets - 1))) {
+            cmd->tickCount = INT_MAX;
+            cmd->commandNumber = INT_MAX;
+            *cmd = cmdStore;
+        }
+        else if (interfaces->engine->getNetworkChannel()->chokedPackets == 1) {
+            cmd->tickCount -= 1;
+            cmd->commandNumber -= 1;
+        }
+    }
+}
+
+
 void Misc::AttackIndicator(GameEvent* event) noexcept
 {
     if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())

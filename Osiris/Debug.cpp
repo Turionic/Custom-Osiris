@@ -139,7 +139,7 @@ void Debug::Logger(GameEvent *event) {
         std::wstring weapon = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(event->getString("weapon"));
 
         Debug::LogItem logEntry;
-        std::wstring text = {L"Shot " + playerName + L" for " + std::to_wstring(health) + L"hp in the" + HitGroups[event->getInt("hitgroup")] + L"with a " + weapon + L" || " + std::to_wstring(r_health) + L"hp remaining"};
+        std::wstring text = {L"Hit " + playerName + L" for " + std::to_wstring(health) + L"hp in the" + HitGroups[event->getInt("hitgroup")] + L"with a " + weapon + L" || " + std::to_wstring(r_health) + L"hp remaining"};
         logEntry.text.push_back(text);
         logEntry.time_of_creation = memory->globalVars->realtime;
 
@@ -168,21 +168,46 @@ void Debug::Logger(GameEvent *event) {
 template <class T>
 static void EraseDeque(std::deque<T>& de, int offset) {
     for (int i = de.size(); i > offset; i--) {
+        if (de.back().PrintToConsole) {
+            for (std::wstring text : de.back().text) {
+                std::wstring command = { L"echo \"[HARPOON] " + text + L" [HARPOON]\"" };
+                const wchar_t* wcmd = command.c_str();
+                size_t size = (wcslen(wcmd) + 1) * sizeof(wchar_t);
+                char* cmd = new char[size];
+                std::wcstombs(cmd, wcmd, size);
+                interfaces->engine->clientCmdUnrestricted(cmd);
+                delete cmd;
+            }
+        }
         de.pop_back();
     }
 }
 
 void Debug::PrintLog() {
-    if (LOG_OUT.size() > 8)
+    if (LOG_OUT.size() > 8) {
         EraseDeque(LOG_OUT, 8);
+    }
 
 
     int i = 0;
     for (; i < LOG_OUT.size(); i++) {
         LogItem item = LOG_OUT.at(i);
+
+        if (item.time_of_creation < 1.0f) {
+            item.time_of_creation = memory->globalVars->realtime;
+        }
+
         if ((item.time_of_creation + 10) < (memory->globalVars->realtime)) { EraseDeque(LOG_OUT, i); return; }
+
+        if (!item.PrintToScreen)
+            continue;
+
+        //if (!config.misc.cout) {
+        //    return;
+        //}
+
         interfaces->surface->setTextFont(Surface::font);
-        interfaces->surface->setTextColor(255, 255, 255, (1 - (((memory->globalVars->realtime - item.time_of_creation)) / 10.0f)) * 255);
+        interfaces->surface->setTextColor(item.color[0], item.color[1], item.color[2], (1 - (((memory->globalVars->realtime - item.time_of_creation)) / 10.0f)) * 255);
         //SetupTextPos
         Draw_Text(item.text);
     }
@@ -607,13 +632,9 @@ std::vector<std::wstring> Debug::formatRecord(Backtrack::Record record, Entity* 
     std::wstring playername{ L"PlayerName: " + std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entity->getPlayerName(true)) };
     std::wstring bindex{ L"Index: " + std::to_wstring(index)};
     std::wstring simtime{ L"Simulation Time: " + std::to_wstring(record.simulationTime) };
-    std::wstring prevhealth{ L"Previous Health: " + std::to_wstring(record.prevhealth) };
-    std::wstring missedshots{ L"Missed Shots: " + std::to_wstring(record.missedshots) };
-    std::wstring wasTargeted{ L"Was Targeted?: " + std::to_wstring(record.wasTargeted) };
-    std::wstring wasUpdated{ L"Was Updated?: " + std::to_wstring(record.wasUpdated) };
-    std::wstring resolvedAngles{ L"Resolved Angle: " + std::to_wstring(record.resolvedaddition) };
 
-    strings = { playername, bindex, simtime, prevhealth, missedshots, wasTargeted, wasUpdated, resolvedAngles };
+
+    strings = { playername, bindex, simtime};
     return strings;
 
 
@@ -653,9 +674,6 @@ void Debug::BacktrackMonitor() noexcept {
             record = &Backtrack::records[i];
             if (!(record && record->size() && Backtrack::valid(record->at(1).simulationTime)))
                 continue;
-            if (record->at(1).wasTargeted)
-                strings_vecs.push_back(formatRecord(record->front(), interfaces->entityList->getEntity(i), 0));
-                break;
             if (i == interfaces->engine->getMaxClients())
                 return;
         }

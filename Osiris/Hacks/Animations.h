@@ -11,7 +11,7 @@ namespace Animations
 {
 	void update(UserCmd*, bool& sendPacket) noexcept;
 	void real() noexcept;
-	void fake() noexcept;
+	void fake(UserCmd* cmd) noexcept;
 
 	void players() noexcept;
 	void setup(Entity*, Backtrack::Record) noexcept;

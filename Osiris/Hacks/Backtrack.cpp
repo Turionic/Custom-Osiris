@@ -49,11 +49,12 @@ void Backtrack::update(FrameStage stage) noexcept
         Record record_inv{};
         Record invalid{};
         invalid.invalid = true;
-        invalid.wasTargeted = false;
         if (invalid_record[0].size() < 2) {
             invalid_record[0].push_front(invalid);
             invalid_record[0].push_front(invalid);
         }
+
+        override.Set = false;
 
         for (int i = 1; i <= interfaces->engine->getMaxClients(); i++) {
             auto entity = interfaces->entityList->getEntity(i);
@@ -87,12 +88,16 @@ void Backtrack::update(FrameStage stage) noexcept
 
             //float heighest_weight = 0.0f;
             if (AnimState) {
+
+                auto countBones = *(int*)(entity + 0x291C);
+                record.countBones = countBones;
+
                 for (int b = 0; b < entity->getAnimationLayerCount(); b++) {
                     auto AnimLayer = entity->getAnimationLayer(b);
                     int currAct = entity->getSequenceActivity(AnimLayer->sequence);
                     if (((currAct == ACT_CSGO_FIRE_PRIMARY) ||  (currAct == ACT_CSGO_FIRE_PRIMARY_OPT_1) || (currAct == ACT_CSGO_FIRE_PRIMARY_OPT_2)) && (AnimLayer->weight > 0.1) && (.9> AnimLayer->cycle)) {
                         record.PreviousAct = currAct;
-                        //record.onshot = true;
+                        record.onshot = true;
                         break;
                     }
                     else {
@@ -105,6 +110,7 @@ void Backtrack::update(FrameStage stage) noexcept
             //record.prevhealth = entity->health();
 
 
+            /*
             if (!(!records[i].empty() && records[i].size() && Backtrack::valid(records[i].front().simulationTime))) {
                 record.missedshots = 0;
                 record.prevhealth = entity->health();
@@ -126,7 +132,7 @@ void Backtrack::update(FrameStage stage) noexcept
                 record.lastworkmissed = records[i].front().lastworkmissed;
 
             }
-
+            */
 
 
 
@@ -175,6 +181,20 @@ void Backtrack::update(FrameStage stage) noexcept
     }
 }
 
+
+
+void Backtrack::SetOverride(Entity* entity, Record record) noexcept {
+/* Sets Backtrack Override, will ignore backtrack calculation, and instead force the tick choosen to the one specified by the simtime
+in record
+entity = Entity ptr to target
+record = record choosen to override too
+*/
+    override.Set = true;
+    override.entity = entity;
+    override.record = record;
+}
+
+
 void Backtrack::run(UserCmd* cmd) noexcept
 {
     if (!config->backtrack.enabled)
@@ -208,27 +228,29 @@ void Backtrack::run(UserCmd* cmd) noexcept
 
     const auto aimPunch = localPlayer->getAimPunch();
 
-    for (int i = 1; i <= interfaces->engine->getMaxClients(); i++) {
-        auto entity = interfaces->entityList->getEntity(i);
-        if (!entity || entity == localPlayer.get() || entity->isDormant() || !entity->isAlive()
-            || !entity->isOtherEnemy(localPlayer.get()))
-            continue;
+    if (!override.Set) {
+        for (int i = 1; i <= interfaces->engine->getMaxClients(); i++) {
+            auto entity = interfaces->entityList->getEntity(i);
+            if (!entity || entity == localPlayer.get() || entity->isDormant() || !entity->isAlive()
+                || !entity->isOtherEnemy(localPlayer.get()))
+                continue;
 
-        auto origin = entity->getAbsOrigin();
-        auto head = entity->getBonePosition(8);
+            auto origin = entity->getAbsOrigin();
+            auto head = entity->getBonePosition(8);
 
-        auto angle = Aimbot::calculateRelativeAngle(localPlayerEyePosition, head, cmd->viewangles + (config->backtrack.recoilBasedFov ? aimPunch : Vector{ }));
-        auto fov = std::hypotf(angle.x, angle.y);
-        if (fov < bestFov) {
-            bestFov = fov;
-            bestTarget = entity;
-            bestTargetIndex = i;
-            bestTargetOrigin = origin;
-            bestTargetHead = head;
+            auto angle = Aimbot::calculateRelativeAngle(localPlayerEyePosition, head, cmd->viewangles + (config->backtrack.recoilBasedFov ? aimPunch : Vector{ }));
+            auto fov = std::hypotf(angle.x, angle.y);
+            if (fov < bestFov) {
+                bestFov = fov;
+                bestTarget = entity;
+                bestTargetIndex = i;
+                bestTargetOrigin = origin;
+                bestTargetHead = head;
+            }
         }
     }
 
-    if (bestTarget) {
+    if (bestTarget && !override.Set) {
         if (records[bestTargetIndex].size() <= 3 || (!config->backtrack.ignoreSmoke && memory->lineGoesThroughSmoke(localPlayer->getEyePosition(), bestTargetHead, 1)))
             return;
 
@@ -248,8 +270,15 @@ void Backtrack::run(UserCmd* cmd) noexcept
         }
     }
 
-    if (bestRecord) {
-        auto record = records[bestTargetIndex][bestRecord];
+    if (bestRecord || override.Set) {
+        Record record;
+
+        if (override.Set) {
+            record = override.record;
+        }
+        else {
+            record = records[bestTargetIndex][bestRecord];
+        }
         memory->setAbsOrigin(bestTarget, record.origin);
 
         /*This is pasted cause why not paste it? it's like 10 lines of code, what am I gonna do, chance the variable names?*/
@@ -269,8 +298,6 @@ void Backtrack::run(UserCmd* cmd) noexcept
         /* insert quick maths for origin/angle/mins/maxs interpolation */
 
         // Apply correct tick_count
-        //cmd->tick_count = TIME_TO_TICKS(real_target_time + local_player.GetLerpTime());
-
         cmd->tickCount = timeToTicks((real_target_time + getLerp()));
     }
 }

@@ -6,6 +6,7 @@ struct UserCmd;
 
 namespace Misc
 {
+    void WillThisWork(UserCmd* cmd, bool& sendPacket);
     void edgejump(UserCmd* cmd) noexcept;
     void slowwalk(UserCmd* cmd) noexcept;
     void inverseRagdollGravity() noexcept;
@@ -51,4 +52,5 @@ namespace Misc
     extern float freezeEnd;
     extern float lastUpdate;
     extern int damagedone;
+    extern int LastSend;
 }

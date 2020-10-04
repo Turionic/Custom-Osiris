@@ -31,6 +31,7 @@ private:
     void renderGuiStyle2() noexcept;
     void renderDebugWindow(bool contentOnly = false) noexcept;
     void renderRenderablesWindow(bool contentOnly = false) noexcept;
+    void renderGriefWindow(bool contentOnly = false) noexcept;
 
     struct {
         bool aimbot = false;
@@ -50,6 +51,7 @@ private:
         bool config = false;
         bool debug = false;
         bool renderables = false;
+        bool grief = false;
     } window;
 
     struct {

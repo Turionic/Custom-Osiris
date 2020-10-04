@@ -22,7 +22,7 @@ void Animations::update(UserCmd* cmd, bool& sendPacket) noexcept
     data.sendPacket = sendPacket;
 }
 
-void Animations::fake() noexcept
+void Animations::fake(UserCmd* cmd) noexcept
 {
     static AnimState* fakeanimstate = nullptr;
     static bool updatefakeanim = true;
@@ -56,7 +56,7 @@ void Animations::fake() noexcept
 
         initfakeanim = true;
     }
-    if ((data.sendPacket && (!AntiAim::lbyNextUpdatedPrevtick || localPlayer->velocity().length2D() > 1.125f)) || ((!AntiAim::lbyNextUpdatedPrevtick && AntiAim::lbyNextUpdated) || (AntiAim::lbyNextUpdatedPrevtick && AntiAim::lbyNextUpdated)) && localPlayer->velocity().length2D() < 1.125f)
+    if (((cmd->tickCount != INT_MAX) || config->antiAim.airstuckonLBY) && ((data.sendPacket && (!AntiAim::lbyNextUpdatedPrevtick || localPlayer->velocity().length2D() > 1.125f)) || ((!AntiAim::lbyNextUpdatedPrevtick && AntiAim::lbyNextUpdated) || (AntiAim::lbyNextUpdatedPrevtick && AntiAim::lbyNextUpdated)) && localPlayer->velocity().length2D() < 1.125f))
     {
         std::array<AnimationLayer, 15> networked_layers;
 

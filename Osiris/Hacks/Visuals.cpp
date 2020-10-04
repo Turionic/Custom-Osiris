@@ -639,7 +639,11 @@ void Visuals::bulletBeams(GameEvent* event) noexcept
     if (!player || !localPlayer)
         return;
 
-    
+    if((player != localPlayer.get()) && !config->visuals.bulletTracersEnemy.enabled)
+        return;
+
+    if (!localPlayer->isOtherEnemy(player))
+        return;
 
     Vector position;
     position.x = event->getFloat("x");

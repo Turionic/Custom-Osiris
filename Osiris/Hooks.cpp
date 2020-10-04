@@ -231,12 +231,18 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
 
     Misc::removeRagdolls(cmd);
 
-    if (!(cmd->buttons & (UserCmd::IN_ATTACK ))) { // | UserCmd::IN_ATTACK2
 
+
+
+    if (!(cmd->buttons & (UserCmd::IN_ATTACK))) { // | UserCmd::IN_ATTACK2
         Misc::WalkBot(cmd);
         AntiAim::fakeWalk(cmd, sendPacket, currentViewAngles);
         AntiAim::run(cmd, previousViewAngles, currentViewAngles, sendPacket);
-
+    }
+    else {
+        if (config->debug.forceSendOnShot) {
+            sendPacket = true;
+        }
     }
 
     
@@ -262,6 +268,8 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
     cmd->viewangles.normalize();
     Misc::fixMovement(cmd, currentViewAngles.y);
 
+    Misc::WillThisWork(cmd, sendPacket);
+
     if (config->debug.fourfifty) {
         cmd->forwardmove = (cmd->forwardmove / 250.0f) * 450.0f;
         cmd->sidemove = (cmd->sidemove / 250.0f) * 450.0f;
@@ -277,7 +285,7 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
     previousViewAngles = cmd->viewangles;
 
     Animations::update(cmd, sendPacket);
-    Animations::fake();
+    Animations::fake(cmd);
 
 
     return false;
@@ -334,6 +342,7 @@ static bool __fastcall svCheatsGetBool(void* _this) noexcept
         return hooks->svCheats.getOriginal<bool, 13>()(_this);
 }
 
+#include "Grief.h"
 static void __stdcall paintTraverse(unsigned int panel, bool forceRepaint, bool allowForce) noexcept
 {
     if (interfaces->panel->getName(panel) == "MatSystemTopPanel") {
@@ -344,6 +353,7 @@ static void __stdcall paintTraverse(unsigned int panel, bool forceRepaint, bool 
         //Misc::AnimStateMonitor();
 
         Debug::run();
+        Grief::TeamDamageCounter();
         Visuals::hitMarker();
     }
     hooks->panel.callOriginal<void, 41>(panel, forceRepaint, allowForce);
@@ -679,6 +689,7 @@ static bool __fastcall WriteUsercmdDeltaToBuffer(void* ecx, void* edx, int slot,
 
     int nextcommmand = memory->clientState->lastOutgoingCommand + memory->clientState->chokedCommands + 1;
     int totalcommands = std::min(Tickbase::tick->tickshift, Tickbase::tick->maxUsercmdProcessticks);
+    int shiftedTicks = Tickbase::tick->tickshift;
     Tickbase::tick->tickshift = 0;
 
     from = -1;
@@ -687,18 +698,18 @@ static bool __fastcall WriteUsercmdDeltaToBuffer(void* ecx, void* edx, int slot,
 
     for (to = nextcommmand - newcommands + 1; to <= nextcommmand; to++)
     {
-        if (!(original(ecx, slot, buffer, from, to, true)))
+        if (!(original(ecx, slot, buffer, from, to, true))) {
             return false;
-
+        }
         from = to;
     }
 
     UserCmd* lastRealCmd = memory->input->GetUserCmd(slot, from);
     UserCmd fromcmd;
 
-    if (lastRealCmd)
-        fromcmd = *lastRealCmd;
-
+    if (lastRealCmd) {
+        fromcmd = *lastRealCmd;        
+    }
     UserCmd tocmd = fromcmd;
     tocmd.tickCount += 200;
     tocmd.commandNumber++;
@@ -711,7 +722,32 @@ static bool __fastcall WriteUsercmdDeltaToBuffer(void* ecx, void* edx, int slot,
         tocmd.tickCount++;
     }
 
+
     return true;
+}
+
+//void __cdecl
+static void __fastcall CL_Move(void* ecx, void* edx, float accumulated_extra_samples, bool bFinalTick)
+{
+    /*
+    if (Globals::teleport)
+    {
+        Globals::teleport = false;
+        return;
+    }*/
+
+
+    auto original = hooks->clMove.getOriginal<CL_MoveFn, 0>(accumulated_extra_samples, bFinalTick);
+
+    if (true) {
+        original(ecx, accumulated_extra_samples, bFinalTick);
+        return;
+    }
+
+    //hooks->clMove.callOriginal<CL_MoveFn,0>(accumulated_extra_samples, bFinalTick);
+    //return;
+    // static bool __stdcall
+    //((CL_MoveFn)oCL_Move)(accumulated_extra_samples, bFinalTick);
 }
 
 void Hooks::install() noexcept
@@ -736,7 +772,7 @@ void Hooks::install() noexcept
     surface.init(interfaces->surface);
     svCheats.init(interfaces->cvar->findVar("sv_cheats"));
     viewRender.init(memory->viewRender);
-
+    //clMove.init(memory->CL_MoveCall);
     
 
 
@@ -753,6 +789,7 @@ void Hooks::install() noexcept
     engine.hookAt(82, isPlayingDemo);
     engine.hookAt(101, getScreenAspectRatio);
     engine.hookAt(218, getDemoPlaybackParameters);
+    //clMove.hook(CL_Move);
 
     modelRender.hookAt(21, drawModelExecute);
     panel.hookAt(41, paintTraverse);
@@ -802,6 +839,7 @@ void Hooks::uninstall() noexcept
         MH_Uninitialize();
     }
 
+    //clMove.restore();
     bspQuery.restore();
     client.restore();
     clientMode.restore();

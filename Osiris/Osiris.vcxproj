@@ -17,6 +17,7 @@
     <ClCompile Include="EventListener.cpp" />
     <ClCompile Include="extraHooks.cpp" />
     <ClCompile Include="GameData.cpp" />
+    <ClCompile Include="Grief.cpp" />
     <ClCompile Include="Hacks\Aimbot.cpp" />
     <ClCompile Include="Hacks\Animations.cpp" />
     <ClCompile Include="Hacks\AntiAim.cpp" />
@@ -79,6 +80,7 @@
     <ClInclude Include="extraHooks.h" />
     <ClInclude Include="fnv.h" />
     <ClInclude Include="GameData.h" />
+    <ClInclude Include="Grief.h" />
     <ClInclude Include="Hacks\Aimbot.h" />
     <ClInclude Include="Hacks\Animations.h" />
     <ClInclude Include="Hacks\AntiAim.h" />
@@ -233,6 +235,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <GenerateManifest>false</GenerateManifest>
+    <TargetName>Harpoon</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -259,7 +262,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;_CRT_SECURE_NO_WARNINGS;_USE_MATH_DEFINES;WIN32_LEAN_AND_MEAN;WINVER=0x0601;_WIN32_WINNT=0x0601;WIN32;NDEBUG;OSIRIS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>

@@ -4,6 +4,9 @@
 #include "../SDK/Entity.h"
 #include "../SDK/UserCmd.h"
 
+
+Tickbase::ForceCMD Tickbase::newCmd;
+
 bool canShift(int ticks, bool shiftAnyways = false)
 {
     if (!localPlayer || !localPlayer->isAlive() || ticks <= 0)
@@ -53,19 +56,27 @@ void Tickbase::shiftTicks(int ticks, UserCmd* cmd, bool shiftAnyways) noexcept /
 {
     if (!localPlayer || !localPlayer->isAlive() || !config->misc.dt.enabled)
         return;
-    if (!canShift(ticks, shiftAnyways))
+
+    if (!canShift(ticks, shiftAnyways)) {
         return;
+    }
+
+
     tick->commandNumber = cmd->commandNumber;
     tick->tickbase = localPlayer->tickBase();
     tick->tickshift = ticks;
-    //Teleport kinda buggy
-    tick->chokedPackets += ticks;
-    recalculateTicks();
+
+    if (newCmd.setcmd) {
+        /* For DT Resolving*/
+    }
 }
 
 void Tickbase::run(UserCmd* cmd) noexcept
 {
-    if (!localPlayer || !localPlayer->isAlive() || localPlayer->isDormant() || (interfaces->engine->getNetworkChannel()->chokedPackets > 1) || ((localPlayer->getVelocity().length2D() > config->misc.fakelagspeed)))
+    if (!config->misc.dt.enabled)
+        return;
+
+    if (!localPlayer || !localPlayer->isAlive() || localPlayer->isDormant() || (interfaces->engine->getNetworkChannel()->chokedPackets > 16) || ((localPlayer->getVelocity().length2D() > config->misc.fakelagspeed)) || config->misc.testshit.enabled)
         return;
 
     //if (localPlayer->getVelocity().length2D() > 60.0f)
@@ -88,23 +99,32 @@ void Tickbase::run(UserCmd* cmd) noexcept
 
     auto ticks = 0;
 
-    switch (config->misc.dt.doubletapspeed) {
+    switch (config->misc.dt.doubletapspeed - 1) {
     case 0: //Instant
         ticks = 16;
         break;
-    case 1: //Fast
+    case 1:
+        ticks = 15;
+        break;
+    case 2: //Fast
         ticks = 14;
         break;
-    case 2: //Accurate
+    case 3: //Accurate
+        ticks = 13;
+        break;
+    case 4: //Accurate
         ticks = 12;
         break;
     }
 
-    if ((cmd->buttons & UserCmd::IN_ATTACK) && ((config->misc.dt.enabled && GetAsyncKeyState(config->misc.dt.dtKey)) || (config->misc.dt.enabled && (config->misc.dt.dtKey == 0))))
-        shiftTicks(ticks, cmd);
+    if ((cmd->buttons & UserCmd::IN_ATTACK) && ((config->misc.dt.enabled && GetAsyncKeyState(config->misc.dt.dtKey)) || (config->misc.dt.enabled && (config->misc.dt.dtKey == 0)))) { 
+        shiftTicks(ticks, cmd); 
+    }
+    
 
-    if (tick->tickshift <= 0 && tick->ticksAllowedForProcessing < (tick->maxUsercmdProcessticks - tick->fakeLag) && (interfaces->engine->getNetworkChannel()->chokedPackets < 1) /*&& !config->antiAim.fakeDucking*/ && ((config->misc.chokedPackets <= (tick->maxUsercmdProcessticks - ticks)) || !config->misc.chokedPackets))
+    if ((tick->tickshift <= 0) && (tick->ticksAllowedForProcessing < (tick->maxUsercmdProcessticks - interfaces->engine->getNetworkChannel()->chokedPackets)) || ((interfaces->engine->getNetworkChannel()->chokedPackets <= (tick->maxUsercmdProcessticks - ticks))) && !config->misc.testshit.toggled && !cmd->buttons & UserCmd::IN_ATTACK)/*&& !config->antiAim.fakeDucking*/ /*&& ((interfaces->engine->getNetworkChannel()->chokedPackets <= (tick->maxUsercmdProcessticks - ticks)) || !config->misc.testshit.toggled) */
     {
+        //newCmd.dtPrevTick = false;
         if (cmd->tickCount != INT_MAX) {
             cmd->tickCount = INT_MAX; //recharge
         }
@@ -112,4 +132,6 @@ void Tickbase::run(UserCmd* cmd) noexcept
     }
 
     recalculateTicks();
+
+
 }

@@ -10,6 +10,7 @@
 
 class ClientMode;
 class ClientState;
+
 class Entity;
 class GameEventDescriptor;
 class GameEventManager;
@@ -31,6 +32,9 @@ struct GlowObjectManager;
 struct Trace;
 struct Vector;
 
+inline DWORD oCL_Move;
+typedef void(__cdecl* CL_MoveFn)(float&, bool&);
+
 class Memory {
 public:
     Memory() noexcept;
@@ -39,6 +43,7 @@ public:
     uintptr_t reset;
 
     ClientMode* clientMode;
+
 
     Input* input;
     GlobalVars* globalVars;
@@ -86,7 +91,8 @@ public:
     ClientState* clientState;
     void* WriteUsercmdDeltaToBufferReturn;
     uintptr_t WriteUsercmd;
-
+    CL_MoveFn* CL_MoveCall;
+    
     MemAlloc* memalloc;
 
     IViewRenderBeams* renderBeams;

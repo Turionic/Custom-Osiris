@@ -30,6 +30,7 @@ public:
     HookType client;
     HookType clientMode;
     HookType engine;
+    HookType clMove;
     HookType modelRender;
     HookType panel;
     HookType sound;

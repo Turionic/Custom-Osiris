@@ -8,6 +8,7 @@ public:
     void init(void* base) noexcept;
     void restore() noexcept {}
     void hookAt(std::size_t index, void* fun) noexcept;
+    void hook(void* fun) noexcept;
 
     template<typename T, std::size_t Idx, typename ...Args>
     constexpr auto getOriginal(Args... args) const noexcept

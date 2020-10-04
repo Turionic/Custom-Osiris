@@ -20,6 +20,7 @@ namespace Resolver {
         float simtime;
         Vector EyePosition;
         Vector TargetedPosition;
+        Vector viewangles;
         int DamageDone;
         int shotCount;
     };

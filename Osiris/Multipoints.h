@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-
+#include "SDK/matrix3x4.h"
 class Entity;
 
 struct Vector;
@@ -66,6 +66,6 @@ namespace Multipoints
         "Right Forearm",
     };
 
-    bool retrieveAll(Entity* entity, float multiPointsExpansion, float secondExpan, Vector(&multiPoints)[Multipoints::HITBOX_MAX][Multipoints::MULTIPOINTS_MAX]);
+    bool retrieveAll(Entity* entity, float multiPointsExpansion, float secondExpan, Vector(&multiPoints)[Multipoints::HITBOX_MAX][Multipoints::MULTIPOINTS_MAX], matrix3x4* bonesptr = nullptr, bool MatrixPassed = false);
     bool retrieveOne(Entity* entity, float multiPointsExpansion, Vector(&multiPoints)[Multipoints::MULTIPOINTS_MAX], int desiredHitBox = Multipoints::HITBOX_HEAD);
 };

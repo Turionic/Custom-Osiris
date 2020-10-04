@@ -600,47 +600,79 @@ static void addLineWithShadow(const ImVec2& p1, const ImVec2& p2, ImU32 col, flo
 #include "../SDK/Entity.h"
 
 void StreamProofESP::bulletTracer(GameEvent* event) noexcept {
-    if (!config->visuals.espbulletTracers.enabled || !interfaces->engine->isInGame() || !localPlayer || !localPlayer->isAlive() || localPlayer->isDormant())
+    if ((!config->visuals.espbulletTracers.enabled && !config->visuals.stolenfromrifk.enabled) || !interfaces->engine->isInGame() || !localPlayer || !localPlayer->isAlive() || localPlayer->isDormant())
         return;
 
     auto player = interfaces->entityList->getEntity(interfaces->engine->getPlayerForUserID(event->getInt("userid")));
 
-    if (!player || !localPlayer)
+
+
+    if (!player)
         return;
 
-    if (!(player == localPlayer.get()))
+    if ((!(player == localPlayer.get())) && !config->visuals.stolenfromrifk.enabled) {
         return;
+    } else if ((player == localPlayer.get()) && !config->visuals.espbulletTracers.enabled){
+        return;
+    }
+    
+    if (!player->isOtherEnemy(localPlayer.get()) && !(player == localPlayer.get())){
+        return;
+    }
 
 
+
+
+
+    DrawItem Box;
+    DrawItem Line;
 
     Vector position;
     position.x = event->getFloat("x");
     position.y = event->getFloat("y");
     position.z = event->getFloat("z");
 
-    
+    Vector StartPos = player->getEyePosition();
 
     ColorA color;
-    color.color[0] = config->visuals.espbulletTracers.color[0];
-    color.color[1] = config->visuals.espbulletTracers.color[1];
-    color.color[2] = config->visuals.espbulletTracers.color[2];
-    color.color[3] = 1.0f;
+
+    if (player == localPlayer.get()) {
+        color.color[0] = config->visuals.espbulletTracers.color[0];
+        color.color[1] = config->visuals.espbulletTracers.color[1];
+        color.color[2] = config->visuals.espbulletTracers.color[2];
+        color.color[3] = 1.0f;
+        Line.exist_time = 20.0f;
+        Box.exist_time = 5.0f;
+    }
+    else {
+
+        ImVec2 Vec2;
+        if (!worldToScreen(position, Vec2) || !worldToScreen(StartPos, Vec2)) {
+            return;
+        }
+
+        color.color[0] = config->visuals.stolenfromrifk.color[0];
+        color.color[1] = config->visuals.stolenfromrifk.color[1];
+        color.color[2] = config->visuals.stolenfromrifk.color[2];
+        color.color[3] = 1.0f;
+        Line.exist_time = .8f;
+        Box.exist_time = .8f;
+    }
 
 
     //ESPItemList
-    DrawItem Line;
-    Line.StartPos = position;
+
+    Line.StartPos = StartPos;
     Line.EndPos = position;
-    Line.exist_time = 20.0f;
     Line.Fade = true;
     Line.type = LINE;
     Line.thickness = 3.0f;
     Line.Color = color;
 
-    DrawItem Box;
+
     Box.EndPos = position;
     Box.StartPos = position;
-    Box.exist_time = 5.0f;
+
     Box.height = 5.0f;
     Box.width = 5.0f;
     Box.Fade = true;
@@ -648,7 +680,9 @@ void StreamProofESP::bulletTracer(GameEvent* event) noexcept {
     Box.thickness = 1.0f;
     Box.Color = color;
 
-    //ESPItemList.push_back(Line);
+    if (!(player == localPlayer.get())) {
+        ESPItemList.push_back(Line);
+    }
     ESPItemList.push_back(Box);
     
     return;

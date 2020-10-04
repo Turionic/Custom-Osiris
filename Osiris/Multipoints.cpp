@@ -8,12 +8,13 @@
 #include "SDK/GlobalVars.h"
 #include "SDK/ModelInfo.h"
 #include "Memory.h"
+#include "MemAlloc.h"
 #include "SDK/GlobalVars.h"
 #include "Multipoints.h"
 
 namespace Multipoints
 {
-    bool retrieveAll(Entity* entity, float multiPointsExpansion, float secondExpan, Vector(&multiPoints)[Multipoints::HITBOX_MAX][Multipoints::MULTIPOINTS_MAX])
+    bool retrieveAll(Entity* entity, float multiPointsExpansion, float secondExpan, Vector(&multiPoints)[Multipoints::HITBOX_MAX][Multipoints::MULTIPOINTS_MAX], matrix3x4* bonesptr, bool MatrixPassed)
     {
         if (!localPlayer)
             return false;
@@ -23,8 +24,15 @@ namespace Multipoints
 
         static matrix3x4 bones[256];
 
-        if (!entity->setupBones(bones, ARRAYSIZE(bones), 256, memory->globalVars->currenttime))
-            return false;
+
+        if (!MatrixPassed || !bonesptr || config->debug.forcesetupBones) {
+            if (!entity->setupBones(bones, ARRAYSIZE(bones), 256, memory->globalVars->currenttime)) {
+                return false;
+            }
+        }
+        else {
+            memcpy(bones, bonesptr, sizeof(matrix3x4) * 256);
+        }
 
         const Model* model = entity->getModel();
 

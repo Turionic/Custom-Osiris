@@ -209,6 +209,9 @@
     <ClCompile Include="Walkbot.cpp">
       <Filter>Hacks</Filter>
     </ClCompile>
+    <ClCompile Include="Grief.cpp">
+      <Filter>Hacks</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GUI.h">
@@ -569,6 +572,9 @@
       <Filter>Hacks\Walkbot</Filter>
     </ClInclude>
     <ClInclude Include="Walkbot.h">
+      <Filter>Hacks</Filter>
+    </ClInclude>
+    <ClInclude Include="Grief.h">
       <Filter>Hacks</Filter>
     </ClInclude>
   </ItemGroup>

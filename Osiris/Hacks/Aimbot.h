@@ -12,7 +12,7 @@ namespace Aimbot
     bool GetBestPoint(Entity* entity, int weaponIndex, std::vector<Vector>& AimPoints, Vector &BestPoint);
     float willPointWork(Entity* entity, int weaponIndex, Vector AimPoint);
     bool ScanAllPoints(Entity* entity, int weaponIndex, Vector &AimPoint, int bone, bool wasTargeted);
-    void run(UserCmd*, int& bestDamage, int& bestHitchance, Vector& wallbangVector) noexcept;
+    void run(UserCmd*, int& bestDamage_save, int& bestHitchance, Vector& wallbangVector) noexcept;
     void oldstyle(UserCmd* cmd) noexcept;
     bool BaseLogic(int entity_indx, int weaponIndex, std::vector<Vector> AimPoint, Vector& BestPoint, int bone, bool wasTargeted);
     //static bool HitChance(Vector angles, Entity* entity, Entity* weapon, int weaponIndex, UserCmd* cmd, const int chance) noexcept;

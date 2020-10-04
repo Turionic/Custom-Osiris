@@ -25,16 +25,16 @@ namespace Backtrack {
     struct Record {
         Vector head;
         Vector origin;
-        float resolvedaddition = 0.0f;
+        //float resolvedaddition = 0.0f;
         float simulationTime = 0.0f;
         matrix3x4 matrix[256];
         int PreviousAct = 0;
-        int prevhealth = 0;
-        int lastworkmissed = 0;
-        int missedshots = 0;
-        bool wasTargeted = 0;
+        //int prevhealth = 0;
+        //int lastworkmissed = 0;
+        //int missedshots = 0;
+
         bool invalid = false;
-        bool wasUpdated = false;
+       // bool wasUpdated = false;
         bool lbyUpdated = false;
         Vector mins;
         Vector max; 
@@ -43,11 +43,19 @@ namespace Backtrack {
         bool wasVisible = false;
         bool btTargeted = false;
         bool onshot = false;
-
+        int countBones;
     };
 
-    bool ImportantTick(std::deque<Record> record);
 
+    struct {
+        bool Set = false;
+        Entity* entity;
+        Record record;
+    } override;
+
+
+    bool ImportantTick(std::deque<Record> record);
+    void SetOverride(Entity* entity, Record record) noexcept;
 
     extern std::deque<Record> records[65];
     extern std::deque<Record> extended_records[65];

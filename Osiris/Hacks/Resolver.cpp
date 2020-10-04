@@ -215,6 +215,15 @@ void Resolver::AnimStateResolver(Entity* entity, int missed_shots) {
 
 }
 */
+#include "../Debug.h"
+#include <mutex>
+#include <numeric>
+#include <sstream>
+#include <codecvt>
+#include <locale>
+#include <string>
+#include <iostream>
+#include <cstddef>
 void Resolver::BasicResolver(Entity* entity, int missed_shots) {
 
     if (!config->debug.animstatedebug.resolver.basicResolver)
@@ -433,20 +442,35 @@ void Resolver::BasicResolver(Entity* entity, int missed_shots) {
 
 
 
+    if (DesyncAng > 180) {
+        float off = DesyncAng - 180;
+        DesyncAng = -180 + off;
+    }
+    else  if (DesyncAng < -180) {
+        DesyncAng = (DesyncAng + 180) + 180;
+    }
+
+    Debug::LogItem item;
+    item.PrintToScreen = false;
+    std::wstring name = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entity->getPlayerName(true));
+    item.text.push_back(std::wstring{ L"Attempting to Resolve " + name + L" setting (Y) Angles to " + std::to_wstring(DesyncAng) + L" Offset " + std::to_wstring(DesyncAng - record->originalLBY) + L" Original LBY/EyeAngles Were " + std::to_wstring(record->originalLBY) + L"/" + std::to_wstring(record->PreviousEyeAngle)});
+    Debug::LOG_OUT.push_front(item);
+
     entity->eyeAngles().y = DesyncAng;
+    entity->setAbsAngle(entity->eyeAngles());
 
     //record->missedshots = missed;
-
     Animstate->m_flGoalFeetYaw = DesyncAng;
 
     entity->UpdateState(Animstate, entity->eyeAngles());
     record->PreviousEyeAngle = entity->eyeAngles().y;
 
     if (record->PreviousEyeAngle > 180) {
-        record->PreviousEyeAngle -= 180;
+        float off = record->PreviousEyeAngle - 180;
+        record->PreviousEyeAngle = -180 + off;
     }
-    else if (record->PreviousEyeAngle < -180) {
-        record->PreviousEyeAngle += 180;
+    else  if (DesyncAng < -180) {
+        record->PreviousEyeAngle = (record->PreviousEyeAngle + 180) + 180;
     }
 
     record->PreviousDesyncAng = DesyncAng;
