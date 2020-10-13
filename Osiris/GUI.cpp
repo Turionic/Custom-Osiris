@@ -231,7 +231,20 @@ void GUI::renderRenderablesWindow(bool contentOnly) noexcept {
         ImGui::End();
 }
 
-void GUI::renderDebugWindow(bool contentOnly) noexcept 
+
+
+
+
+
+static void Console() noexcept {
+    ImGui::Text("");
+}
+
+std::string Address;
+std::string Value;
+
+
+void GUI::renderDebugWindow(bool contentOnly) noexcept
 {
     if (!contentOnly) {
         if (!window.debug)
@@ -246,84 +259,239 @@ void GUI::renderDebugWindow(bool contentOnly) noexcept
     ImGui::SetColumnWidth(1, 300.0f);
     ImGui::SetColumnWidth(2, 300.0f);
     ImGui::SetColumnWidth(3, 300.0f);
-    ImGui::SetColumnOffset(1, 300.0f);
-    /* OUT */
+    ImGui::SetColumnOffset(1, 300.0f); // ImGui::SetColumnOffset(1, 280.0f);
+
     ImGui::Checkbox("Anim Fix", &config->debug.Animfix);
     ImGui::Checkbox("Base Engine Prediction", &config->debug.engineprediction);
     ImGui::Checkbox("Ghetto Move Fix", &config->debug.movefix);
     ImGui::Checkbox("Ghetto Lag Comp", &config->debug.veloFix);
     ImGui::Checkbox("Force SetupBones Aimbot", &config->debug.forcesetupBones);
+    ImGui::Checkbox("TraceLimit", &config->debug.TraceLimit);
     ImGui::Checkbox("450", &config->debug.fourfifty);
+    ImGui::Checkbox("Force Send Packet On Shot", &config->debug.forceSendOnShot);
 
-    ImGuiCustom::colorPicker("Custom HUD", config->debug.CustomHUD);
-    ImGuiCustom::colorPicker("Box Background", config->debug.box);
-    ImGuiCustom::colorPicker("Desync Info", config->debug.desync_info);
-    ImGuiCustom::colorPicker("Aninimation State Monitor", config->debug.animStateMon);
-    ImGui::InputInt("Overlay val", &config->debug.overlay, 1, 5);
-    ImGui::InputInt("Entity Id", &config->debug.entityid, 1, 5);
-    ImGui::Checkbox("Show AnimState Extras", &config->debug.AnimExtras);
-    ImGui::Checkbox("Search for 979 anim Act", &config->debug.overlayall);
-    ImGui::Checkbox("Search where weight is 1", &config->debug.weight);
-    ImGui::Checkbox("ShowAll Active Acts", &config->debug.showall);
-    ImGui::Checkbox("Show Resolver Records", &config->debug.ResolverRecords);
-    ImGui::Checkbox("Targeted Entities Only", &config->debug.TargetOnly);
 
-    ImGuiCustom::colorPicker("Backtrack Monitor", config->debug.backtrack.color);
-    ImGui::InputInt("Entity ID", &config->debug.backtrack.entityid);
-    ImGui::Checkbox("Newest Record Only", &config->debug.backtrack.newesttick);
-    ImGui::Checkbox("Find Active Backtrack", &config->debug.backtrack.findactive);
+    ImGui::PushID(1);
+    bool monPopup = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("On-Screen Monitors:");
+    if (monPopup) {
+        ImGui::OpenPopup("##Monitors");
+    }
+    if (ImGui::BeginPopup("##Monitors")) {
+        ImGuiCustom::colorPicker("Box Background", config->debug.box);
+        ImGuiCustom::colorPicker("Damage Log", config->debug.DamageLog);
+        ImGuiCustom::colorPicker("Resolver Log", config->debug.ResolverOut);
+        ImGuiCustom::colorPicker("Desync Info", config->debug.desync_info);
+        ImGuiCustom::colorPicker("Global Vars", config->debug.globalvars);
+        ImGuiCustom::colorPicker("Network Channel Monitor", config->debug.networkchannel);
+        ImGuiCustom::colorPicker("Client State Monitor", config->debug.clientstate);
+        ImGuiCustom::colorPicker("Aninimation State Monitor", config->debug.animStateMon);
+        if (config->debug.animStateMon.enabled) {
+            ImGui::Indent(15);
+            ImGui::InputInt("Overlay val", &config->debug.overlay, 1, 5);
+            ImGui::InputInt("Entity Id", &config->debug.entityid, 1, 5);
+            ImGui::Checkbox("Show AnimState Extras", &config->debug.AnimExtras);
+            ImGui::Checkbox("Search for 979 anim Act", &config->debug.overlayall);
+            ImGui::Checkbox("Search where weight is 1", &config->debug.weight);
+            ImGui::Checkbox("ShowAll Active Acts", &config->debug.showall);
+            ImGui::Checkbox("Show Resolver Records", &config->debug.ResolverRecords);
+            ImGui::Checkbox("Targeted Entities Only", &config->debug.TargetOnly);
+            ImGui::Unindent(15);
+        }
+        ImGuiCustom::colorPicker("Backtrack Monitor", config->debug.backtrack.color);
+        if (config->debug.backtrack.color.enabled) {
+            ImGui::Indent(15);
+            ImGui::InputInt("Entity ID", &config->debug.backtrack.entityid);
+            ImGui::Checkbox("Newest Record Only", &config->debug.backtrack.newesttick);
+            ImGui::Checkbox("Find Active Backtrack", &config->debug.backtrack.findactive);
+            ImGui::Unindent(15);
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+    ImGui::PushID(2);
+    bool graphPopup = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("Graph Indicators");
+    if (graphPopup) {
+        ImGui::OpenPopup("##graph");
+    }
+    if (ImGui::BeginPopup("##graph")) {
+        ImGui::Checkbox("Enable Graph Indicators", &config->debug.graph.enabled);
+        if (config->debug.graph.enabled) {
+            ImGui::Indent(10);
+            //ImGui::BeginPopup("##Graphs");
+            ImGui::Checkbox("FPS Graph Bar", &config->debug.graph.FPSBar);
+            ImGui::Checkbox("Ping Graph Bar", &config->debug.graph.Ping);
+            ImGui::Checkbox("Fake Lag Graph Bar", &config->debug.graph.FakeLag);
+            ImGui::Unindent(10);
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+
+    ImGui::PushID(3);
+    bool condePopUp = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("Console Debugs");
+    if (condePopUp) {
+        ImGui::OpenPopup("##ConDe");
+    }
+
+    if (ImGui::BeginPopup("##ConDe")) {
+        ImGui::Checkbox("Aimbot Debug", &config->debug.aimbotcoutdebug);
+        ImGui::Checkbox("Backtrack Debug", &config->debug.backtrackCount);
+        ImGui::Checkbox("Resolver Debug", &config->debug.resolverDebug);
+        ImGui::EndPopup();
+    }
+
+    ImGui::PopID();
+    ImGui::PushID(4);
+    bool convarPopUp = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("ConVar Spoofer");
+    if (convarPopUp) {
+        ImGui::OpenPopup("##Convars");
+    }
+
+    if (ImGui::BeginPopup("##Convars")) {
+        config->debug.spoofconvar = ImGui::Button("Spoof");
+        ImGui::Checkbox("Show Lag Compensation", &config->debug.showlagcomp);
+        ImGui::Checkbox("Show Impacts", &config->debug.showimpacts);
+        ImGui::Checkbox("r_drawothermodels 2", &config->debug.drawother);
+        ImGui::Checkbox("Grenade Trajectory", &config->debug.grenadeTraject);
+        ImGui::Checkbox("Tracer", &config->debug.tracer);
+        ImGui::Checkbox("Show bullet hits", &config->debug.bullethits);
+        ImGui::Checkbox("Mat_Grey", &config->visuals.matgrey);
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+    ImGui::PushID(5);
+    bool IndicatorsPopUp = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("Indicators");
+    if (IndicatorsPopUp) {
+        ImGui::OpenPopup("##Indicators");
+    }
+
+    if (ImGui::BeginPopup("##Indicators")) {
+        ImGui::Checkbox("Enable Indicators", &config->debug.indicators.enabled);
+        ImGui::Checkbox("bAim Indicator", &config->debug.indicators.baim);
+        ImGui::Checkbox("Choke Indicator", &config->debug.indicators.choke);
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+
+    ImGui::PushID(6);
+    bool modPopup = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("Animation State Modifiers (Resolver): ");
+    if (modPopup) {
+        ImGui::OpenPopup("##AnimMod");
+    }
+
+    if (ImGui::BeginPopup("##AnimMod")) {
+        ImGui::SetNextWindowSize({ 400.0f, 400.0f });
+        //ImGui::SetColumnOffset(0, 400.0f); // ImGui::SetColumnOffset(1, 280.0f);
+
+        ImGui::Checkbox("Modify AnimState", &config->debug.AnimModifier);
+        if (config->debug.AnimModifier) {
+            ImGui::Checkbox("Resolver", &config->debug.animstatedebug.resolver.enabled);
+            if (config->debug.animstatedebug.resolver.enabled) {
+                ImGui::Indent(10);
+                ImGui::Checkbox("Basic Resolver 1", &config->debug.animstatedebug.resolver.basicResolver);
+                if (config->debug.animstatedebug.resolver.basicResolver) {
+                    ImGui::Indent(20);
+                    ImGui::Checkbox("979 Override", &config->debug.animstatedebug.resolver.overRide);
+                    ImGui::Checkbox("Go For Kill", &config->debug.animstatedebug.resolver.goforkill);
+                    ImGui::Checkbox("Reset Missed on death", &config->debug.animstatedebug.resolver.missedshotsreset);
+                    ImGui::SliderInt("Missed Shots Var", &config->debug.animstatedebug.resolver.missed_shots, 0, 8, "%d");
+                    ImGui::SliderInt("Missed Shots Offset", &config->debug.animstatedebug.resolver.missedoffset, 0, 12, "%d");
+                    ImGui::Unindent(20);
+                    //ImGui::SliderInt("Min Resolver Stick", &config->debug.MinResolverDamage, -180, 180, "%.2f");
+                }
+                ImGui::Unindent(10);
+                //ImGui::CheckBox("LBY Tick (No Anim) Resolver", &config->debug.animstatedebug.resolver.LBYTickResolver);
+                //ImGui::CheckBox("Random Resolver", &config->debug.animstatedebug.resolver.RandomResolver);
+                /*
+                    if(config->debug.animstatedebug.resolver.RandomResolver.enabled){
+                        ImGui::CheckBox("Use Set Bounds, not entity->maxDesyncAngle()", animstatedebug.resolver.RandomResolver.BoundOverride);
+                        if(animstatedebug.resolver.RandomResolver.BoundOverride){
+                            ImGui::SliderInt("Negative Bounds", &config->animstatedebug.resolver.RandomResolver.negBound, -58, 0);
+                            ImGui::SliderInt("Positive Bounds", &config->animstatedebug.resolver.RandomResolver.negBound, 0, 58);
+                        }
+                    }
+                */
+            }
+            ImGui::Checkbox("Manual Edit", &config->debug.animstatedebug.manual);
+            ImGui::SliderFloat("LBY Set", &config->debug.GoalFeetYaw, -180, 180, "%.2f");
+            ImGui::SliderFloat("Pitch Set", &config->debug.Pitch, -90, 90, "%.2f");
+            ImGui::SliderFloat("Yaw Set", &config->debug.Yaw, -180, 180, "%.2f");
+            ImGui::SliderFloat("ABS Set", &config->debug.ABS, -180, 180, "%.2f");
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+    ImGui::PushID(7);
+    bool memPopup = ImGui::Button("...");
+    ImGui::SameLine();
+    ImGui::Text("Memory Modifier");
+    if (memPopup) {
+        ImGui::OpenPopup("##memPopup");
+    }
+
+    if (ImGui::BeginPopup("##memPopup")) {
+        ImGui::InputText("Address", &Address);
+        ImGui::InputText("Value", &Value);
+
+        bool set = ImGui::Button("set");
+        if (set) {
+            uintptr_t* addr = (uintptr_t*)std::stoul(Address, nullptr, 16);
+            char value = (char)std::stoul(Value, nullptr, 16);
+            *addr = value;
+        }
+
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
 
 
     /* IN */
-
-    ImGui::Checkbox("Modify AnimState", &config->debug.AnimModifier);
-    ImGui::Checkbox("Resolver", &config->debug.animstatedebug.resolver.enabled);
-    if (config->debug.animstatedebug.resolver.enabled) {
-        ImGui::Checkbox("Basic Resolver 1", &config->debug.animstatedebug.resolver.basicResolver);
-        if (config->debug.animstatedebug.resolver.basicResolver) {
-            ImGui::Checkbox("979 Override", &config->debug.animstatedebug.resolver.overRide);
-            ImGui::Checkbox("Go For Kill", &config->debug.animstatedebug.resolver.goforkill);
-            ImGui::SliderInt("Missed Shots Var", &config->debug.animstatedebug.resolver.missed_shots, 0, 8, "%d");
-            ImGui::SliderInt("Missed Shots Offset", &config->debug.animstatedebug.resolver.missedoffset, 0, 12, "%d");
-            //ImGui::SliderInt("Min Resolver Stick", &config->debug.MinResolverDamage, -180, 180, "%.2f");
-        }
-
-        //ImGui::CheckBox("LBY Tick (No Anim) Resolver", &config->debug.animstatedebug.resolver.LBYTickResolver);
-        //ImGui::CheckBox("Random Resolver", &config->debug.animstatedebug.resolver.RandomResolver);
-        /*
-            if(config->debug.animstatedebug.resolver.RandomResolver.enabled){
-                ImGui::CheckBox("Use Set Bounds, not entity->maxDesyncAngle()", animstatedebug.resolver.RandomResolver.BoundOverride);
-                if(animstatedebug.resolver.RandomResolver.BoundOverride){
-                    ImGui::SliderInt("Negative Bounds", &config->animstatedebug.resolver.RandomResolver.negBound, -58, 0);
-                    ImGui::SliderInt("Positive Bounds", &config->animstatedebug.resolver.RandomResolver.negBound, 0, 58);
-                }
-            }
-        */
-    }
-    ImGui::Checkbox("Manual Edit", &config->debug.animstatedebug.manual);
-    ImGui::SliderFloat("LBY Set", &config->debug.GoalFeetYaw, -180, 180, "%.2f");
-    ImGui::SliderFloat("Pitch Set", &config->debug.Pitch, -90, 90, "%.2f");
-    ImGui::SliderFloat("Yaw Set", &config->debug.Yaw, -180, 180, "%.2f");
-    ImGui::Checkbox("FPS Graph Bar", &config->debug.FPSBar);
-    ImGui::Checkbox("Indicators", &config->debug.indicators.enabled);
-    ImGui::Checkbox("bAim Indicator", &config->debug.indicators.baim);
-    ImGui::Checkbox("Choke Indicator", &config->debug.indicators.choke);
-    ImGui::Checkbox("TraceLimit", &config->debug.TraceLimit);
-    ImGui::Checkbox("Spoof Convar", &config->debug.spoofconvar);
-    ImGui::Checkbox("Show Lag Compensation", &config->debug.showlagcomp);
-    ImGui::Checkbox("Show Impacts", &config->debug.showimpacts);
-    ImGui::Checkbox("r_drawothermodels 2", &config->debug.drawother);
-    ImGui::Checkbox("Grenade Trajectory", &config->debug.grenadeTraject);
-    ImGui::Checkbox("Tracer", &config->debug.tracer);
-    ImGui::Checkbox("Show bullet hits", &config->debug.bullethits);
     ImGui::NextColumn();
-    ImGui::Checkbox("Aimbot Debug", &config->debug.aimbotcoutdebug);
-    ImGui::Checkbox("Force Send Packet On Shot", &config->debug.forceSendOnShot);
+
+
+    ImGuiCustom::colorPicker("Custom HUD", config->debug.CustomHUD);
+    ImGui::Checkbox("In Sequence", &config->debug.in);
+    ImGui::Checkbox("Out Sequence", &config->debug.out);
+    ImGui::Checkbox("Out Ack Sequence", &config->debug.outack);
+    ImGui::Checkbox("tickCount", &config->debug.Count);
+    ImGui::Checkbox("tickNumber", &config->debug.number);
+    ImGui::Checkbox("Invalidate in Write Delta Buffer", &config->debug.writedeltastuck);
+    
+    /* OUT */
+
+
     if (!contentOnly)
         ImGui::End();
 
 
 }
+
+
+bool hitchance_toggle = false;
+bool multipoint_toggle = false;
+bool mindamage_toggle = false;
+
+
+
+
+
 
 void GUI::renderAimbotWindow(bool contentOnly) noexcept
 {
@@ -445,17 +613,45 @@ void GUI::renderAimbotWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Ignore smoke", &config->aimbot[currentWeapon].ignoreSmoke);
     ImGui::Checkbox("Auto shot", &config->aimbot[currentWeapon].autoShot);
     ImGui::Checkbox("Auto scope", &config->aimbot[currentWeapon].autoScope);
+    ImGui::Checkbox("Auto Stop", &config->aimbot[currentWeapon].autoStop);
     ImGui::Checkbox("Optimize", &config->aimbot[currentWeapon].optimize);
     ImGui::Checkbox("Legit Aimbot", &config->aimbot[currentWeapon].oldstyle);
     ImGui::Checkbox("Baim", &config->aimbot[currentWeapon].baim);
     ImGui::SameLine();
     hotkey(config->aimbot[currentWeapon].baimkey);
     ImGui::SliderInt("Baim on Missed Shots", &config->aimbot[currentWeapon].baimshots, 0, 12);
-    ImGui::Checkbox("OnShot", &config->aimbot[currentWeapon].onshot);
-    ImGui::Checkbox("Pelvis Aim (On LBY Update)", &config->aimbot[currentWeapon].pelvisAimOnLBYUpdate);
-    ImGui::Checkbox("Prioritize Event Backtrack", &config->aimbot[currentWeapon].prioritizeEventBT);
     ImGui::Combo("Bone ", &config->aimbot[currentWeapon].bone, "Nearest\0Best damage\0Head\0Neck\0Sternum\0Chest\0Stomach\0Pelvis\0HitBox\0");
     ImGuiCustom::MultiCombo("Hitboxes", Multipoints::hitBoxes, config->aimbot[currentWeapon].hitboxes, Multipoints::HITBOX_MAX);
+
+    ImGui::PushID(3);
+    bool backpopUp = ImGui::Button("Backtrack Flags");
+    if (backpopUp) {
+        ImGui::OpenPopup("##backtrackop");
+    }
+    if (ImGui::BeginPopup("##backtrackop")) {
+        ImGui::Checkbox("OnShot", &config->aimbot[currentWeapon].onshot);
+        ImGui::Checkbox("Fire At LBY Updates", &config->aimbot[currentWeapon].ShootForLBY);
+        ImGui::Checkbox("Pelvis Aim (On LBY Update)", &config->aimbot[currentWeapon].pelvisAimOnLBYUpdate);
+        ImGui::Checkbox("Prioritize Event Backtrack", &config->aimbot[currentWeapon].prioritizeEventBT);
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+
+    ImGui::PushID(4);
+    // PrioritizeHeadOnNoDesync
+    bool resolverPopup = ImGui::Button("Resolver Integration Settings");
+    if (resolverPopup) {
+        ImGui::OpenPopup("##resolvepop");
+    }
+    if (ImGui::BeginPopup("##resolvepop")) {
+        ImGui::Checkbox("Prioritize Head On NoDesync Player Flag", &config->aimbot[currentWeapon].PrioritizeHeadOnNoDesync);
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+
+
     ImGui::NextColumn();
     ImGui::PushItemWidth(240.0f);
     ImGui::SliderFloat("Fov", &config->aimbot[currentWeapon].fov, 0.0f, 255.0f, "%.2f", 2.5f);
@@ -463,19 +659,64 @@ void GUI::renderAimbotWindow(bool contentOnly) noexcept
     ImGui::SliderFloat("Max aim inaccuracy", &config->aimbot[currentWeapon].maxAimInaccuracy, 0.0f, 1.0f, "%.5f", 2.0f);
     ImGui::SliderFloat("Max shot inaccuracy", &config->aimbot[currentWeapon].maxShotInaccuracy, 0.0f, 1.0f, "%.5f", 2.0f);
     ImGui::SliderFloat("Max Innacuracy to Rage", &config->aimbot[currentWeapon].maxTriggerInaccuracy, 0.0f, 1.0f, "%.5f", 2.0f);
-    ImGui::SliderInt("Max Points to Scan while damage = 0", &config->aimbot[currentWeapon].pointstoScan, 0, 200, "%.d");
-    ImGui::InputInt("Min damage", &config->aimbot[currentWeapon].minDamage);
-    config->aimbot[currentWeapon].minDamage = std::clamp(config->aimbot[currentWeapon].minDamage, 0, 250);
+
+    ImGui::PushID(5);
+    bool ccmin = ImGui::Button("MinDamages");
+    if (ccmin) {
+        ImGui::OpenPopup("##minDamage");
+    }
+    if (ImGui::BeginPopup("##minDamage")) {
+        ImGui::PushID(1);
+        ImGui::SliderInt("Min damage", &config->aimbot[currentWeapon].minDamage, 0, 200, "%d");
+        ImGui::PopID();
+        ImGui::PushID(2);
+        ImGui::SliderFloat("Min damage Visible", &config->aimbot[currentWeapon].minDamageVis, 0, 200, "%.2f");
+        ImGui::PopID();
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+
+    ImGui::PushID(6);
+    bool multi = ImGui::Button("Multipoint Options");
+    if (multi) {
+        ImGui::OpenPopup("##multi");
+    }
+    
+    if (ImGui::BeginPopup("##multi")){
+        ImGui::Checkbox("Multipoint Enable", &config->aimbot[currentWeapon].multipointenabled);
+        ImGui::PushID(1);
+        ImGui::SliderFloat("Multipoint Distance", &config->aimbot[currentWeapon].multidistance, 0.0f, 2.0f, "%.2f%");
+        ImGui::PopID();
+        ImGui::Checkbox("Add additional Multipoints", &config->aimbot[currentWeapon].multiincrease);
+        ImGui::PushID(2);
+        ImGui::SliderFloat("Additional Multipoint Distance", &config->aimbot[currentWeapon].extrapointdist, 0.0f, 2.0f, "%.2f%");
+        ImGui::PopID();
+        ImGui::Checkbox("Dynamic Multipoints", &config->aimbot[currentWeapon].dynamicpoints);
+        ImGui::Checkbox("Sort Points By Direction of Velocity Vector", &config->aimbot[currentWeapon].veloPointSort);
+        ImGui::PushID(3);
+        ImGui::SliderInt("Max Points to Scan while damage = 0", &config->aimbot[currentWeapon].pointstoScan, 0, 200, "%.d");
+        ImGui::PopID();
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
+    ImGui::PushID(7);
+    bool hitc = ImGui::Button("Hitchance Options");
+
+    if(hitc) {
+        ImGui::OpenPopup("##hitc");
+    }
+
+    if (ImGui::BeginPopup("##hitc") ){
+        ImGui::SliderFloat("Hit chance", &config->aimbot[currentWeapon].hitChance, 0.0f, 100.0f, "%.2f%");
+        ImGui::Checkbox("Ensure Hit Chance", &config->aimbot[currentWeapon].ensureHC);
+        ImGui::Checkbox("Account For Recoil in Hit Chance", &config->aimbot[currentWeapon].considerRecoilInHC);
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
     ImGui::Checkbox("Killshot", &config->aimbot[currentWeapon].killshot);
     ImGui::Checkbox("Between shots", &config->aimbot[currentWeapon].betweenShots);
-    ImGui::Checkbox("AutoStop", &config->aimbot[currentWeapon].autoStop);
-    ImGui::Checkbox("Multipoint Enable", &config->aimbot[currentWeapon].multipointenabled);
-    ImGui::SliderFloat("Multipoint Distance", &config->aimbot[currentWeapon].multidistance, 0.0f, 2.0f, "%.2f%"); 
-    ImGui::Checkbox("Add additional Multipoints", &config->aimbot[currentWeapon].multiincrease);
-    ImGui::SliderFloat("Additional Multipoint Distance", &config->aimbot[currentWeapon].extrapointdist, 0.0f, 2.0f, "%.2f%");   
-    ImGui::Checkbox("Dynamic Multipoints", &config->aimbot[currentWeapon].dynamicpoints);
-    ImGui::SliderFloat("Hit chance", &config->aimbot[currentWeapon].hitChance, 0.0f, 100.0f, "%.2f%");
-    ImGui::Checkbox("Ensure Hit Chance", &config->aimbot[currentWeapon].ensureHC);
     ImGui::Columns(1);
     if (!contentOnly)
         ImGui::End();
@@ -571,7 +812,10 @@ void GUI::renderAntiAimWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Use AnimState Velocity for LBY Check", &config->antiAim.useAnimState);
     ImGui::Checkbox("blah", &config->antiAim.blah);
     ImGui::Checkbox("Micro-move", &config->antiAim.micromove);
-
+    ImGui::Checkbox("Pre-Break LBY", &config->antiAim.preBreak);
+    ImGui::Checkbox("Suppress 979 Animation", &config->antiAim.suppress979);
+    ImGui::Checkbox("Force Hide", &config->antiAim.test.forceHide);
+    ImGui::Checkbox("Force Tickcount Preserve on LBY", &config->antiAim.test.preserveCountOnLBY);
 
 
 
@@ -1294,7 +1538,7 @@ void GUI::renderVisualsWindow(bool contentOnly) noexcept
     ImGui::PushID(6);
     ImGui::PopItemWidth();
     ImGui::Combo("Skybox", &config->visuals.skybox, "Default\0cs_baggage_skybox_\0cs_tibet\0embassy\0italy\0jungle\0nukeblank\0office\0sky_cs15_daylight01_hdr\0sky_cs15_daylight02_hdr\0sky_cs15_daylight03_hdr\0sky_cs15_daylight04_hdr\0sky_csgo_cloudy01\0sky_csgo_night_flat\0sky_csgo_night02\0sky_day02_05_hdr\0sky_day02_05\0sky_dust\0sky_l4d_rural02_ldr\0sky_venice\0vertigo_hdr\0vertigo\0vertigoblue_hdr\0vietnam\0sky_lunacy\0sky_borealis01\0cliff\0blue\0city1\0neb1\0xen8\0sky2mh_");
-
+    ImGui::PopID();
     ImGui::Checkbox("Deagle spinner", &config->visuals.deagleSpinner);
     ImGui::Combo("Screen effect", &config->visuals.screenEffect, "None\0Drone cam\0Drone cam with noise\0Underwater\0Healthboost\0Dangerzone\0");
     ImGui::Combo("Hit effect", &config->visuals.hitEffect, "None\0Drone cam\0Drone cam with noise\0Underwater\0Healthboost\0Dangerzone\0");
@@ -1303,6 +1547,8 @@ void GUI::renderVisualsWindow(bool contentOnly) noexcept
     ImGui::SliderFloat("Hit marker time", &config->visuals.hitMarkerTime, 0.1f, 1.5f, "%.2fs");
     ImGui::Checkbox("Color correction", &config->visuals.colorCorrection.enabled);
     ImGui::SameLine();
+
+    ImGui::PushID(7);
     bool ccPopup = ImGui::Button("Edit");
 
     if (ccPopup)
@@ -1318,13 +1564,12 @@ void GUI::renderVisualsWindow(bool contentOnly) noexcept
         ImGui::VSliderFloat("##7", { 40.0f, 160.0f }, &config->visuals.colorCorrection.yellow, 0.0f, 1.0f, "Yellow\n%.3f"); ImGui::SameLine();
         ImGui::EndPopup();
     }
+    ImGui::PopID();
 
     ImGui::Checkbox("NightMode", &config->visuals.NightMode.enabled);
     ImGui::SameLine();
     ImGui::Checkbox("Mat Grey", &config->visuals.matgrey);
     ImGuiCustom::colorPicker("Ambient Light Color", config->visuals.NightMode);
-    ImGui::EndPopup();
-
     ImGui::Columns(1);
 
     if (!contentOnly)
@@ -1568,6 +1813,8 @@ void GUI::renderMiscWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Slowwalk", &config->misc.slowwalk);
     ImGui::SameLine();
     hotkey(config->misc.slowwalkKey);
+    ImGui::Text("SlowWalk Speed");
+    ImGui::InputInt("",&config->misc.maxSpeed);
     ImGui::Checkbox("Airstuck", &config->misc.airstuck);
     ImGui::SameLine();
     hotkey(config->misc.airstuckkey);
@@ -1590,10 +1837,11 @@ void GUI::renderMiscWindow(bool contentOnly) noexcept
     ImGui::Checkbox("Fix movement", &config->misc.fixMovement);
     ImGui::Checkbox("Disable model occlusion", &config->misc.disableModelOcclusion);
     ImGui::SliderFloat("Aspect Ratio", &config->misc.aspectratio, 0.0f, 5.0f, "%.2f");
+    ImGui::Checkbox("Hide Shots", &config->misc.hideshots);
     ImGui::Checkbox("Double Tap", &config->misc.dt.enabled);
     ImGui::SameLine();
     hotkey(config->misc.dt.dtKey);
-    ImGui::SliderInt("", &config->misc.dt.doubletapspeed, 1, 5, "Speed: %d");
+    ImGui::SliderInt("", &config->misc.dt.doubletapspeed, 1, 10, "Speed: %d");
 
 
     ImGui::NextColumn();

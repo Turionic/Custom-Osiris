@@ -65,6 +65,11 @@ struct Vector {
         return Vector{ x - v.x, y - v.y, z - v.z };
     }
 
+    constexpr auto operator-() const noexcept
+    {
+        return Vector{ -x , -y, -z};
+    }
+
     constexpr auto operator+(const Vector& v) const noexcept
     {
         return Vector{ x + v.x, y + v.y, z + v.z };
@@ -127,6 +132,14 @@ struct Vector {
         return Vector{ a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
     }
 
+    constexpr void CrossProduct(const Vector a)noexcept
+    {
+        y = a.y* z - a.z * y;
+        x = a.z * x - a.x * z;
+        z = a.x * y - a.y * x;
+        return;
+    }
+
     Vector toAngle()
     {
         Vector Ang;
@@ -159,6 +172,32 @@ struct Vector {
         return Ang;
     }
 
+    void VectorVectors(const Vector& forward, Vector& right, Vector& up)
+    {
+        Vector tmp;
+
+        if (forward.x == 0 && forward.y == 0)
+        {
+            // pitch 90 degrees up/down from identity
+            right.x = 0;
+            right.y = -1;
+            right.z = 0;
+            up.x = -forward.y;
+            up.y = 0;
+            up.z = 0;
+        }
+        else
+        {
+            tmp.x = 0; tmp.y = 0; tmp.z = 1.0;
+            right = CrossProduct(forward, tmp);
+            right.normalize();
+            up = CrossProduct(right, forward);
+            up.normalize();
+        }
+    }
+
+
+    //auto toMatrix();
 
     auto length() const noexcept
     {
@@ -180,6 +219,10 @@ struct Vector {
         return x * v.x + y * v.y + z * v.z;
     }
 
+    constexpr auto dotProduct(const float* v) const noexcept
+    {
+        return x * v[0] + y * v[1] + z * v[2];
+    }
     constexpr auto transform(const matrix3x4& mat) const noexcept;
 
     auto distTo(const Vector& v) const noexcept
@@ -191,13 +234,13 @@ struct Vector {
 };
 
 #include "Matrix3x4.h"
-
 constexpr auto Vector::transform(const matrix3x4& mat) const noexcept
 {
     return Vector{ dotProduct({ mat[0][0], mat[0][1], mat[0][2] }) + mat[0][3],
                    dotProduct({ mat[1][0], mat[1][1], mat[1][2] }) + mat[1][3],
                    dotProduct({ mat[2][0], mat[2][1], mat[2][2] }) + mat[2][3] };
 }
+
 
 struct VectorAndDamage
 {

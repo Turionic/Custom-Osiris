@@ -1,5 +1,4 @@
 #pragma once
-
 struct Vector;
 
 class matrix3x4 {
@@ -16,3 +15,5 @@ constexpr auto matrix3x4::origin() const noexcept
 {
     return Vector{ mat[0][3], mat[1][3], mat[2][3] };
 }
+
+

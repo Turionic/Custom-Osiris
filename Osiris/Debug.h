@@ -2,6 +2,9 @@
 #include <vector>
 #include "Interfaces.h"
 #include "Hacks/Backtrack.h"
+#include "SDK/NetworkChannel.h"
+#include "Interfaces.h"
+#include "SDK/Engine.h"
 #include <deque>
 enum class FrameStage;
 class GameEvent;
@@ -60,6 +63,9 @@ namespace Debug{
 
 	void DrawBox(coords start, coords end);
 	void CustomHUD();
+	void NetworkChannelDebug(NetworkChannel* netchannel = interfaces->engine->getNetworkChannel());
+	void ClientstateDebug();
+	void GlobalVarDebug();
 	void DrawGraphBox(coords start, coords end, float min_val, float max_val, float val, float ratio, std::wstring name);
 	bool SetupTextPos(std::vector <std::wstring>& Text);
 	void Draw_Text(std::vector <std::wstring> &Text);

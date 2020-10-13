@@ -509,6 +509,10 @@ public:
         
         return offset;
     }
+
+
+    
+
     void getPlayerName(char(&out)[128]) noexcept;
     bool canSee(Entity* other, const Vector& pos) noexcept;
     bool visibleTo(Entity* other) noexcept;
@@ -525,7 +529,8 @@ public:
     NETVAR(ownerEntity, "CBaseEntity", "m_hOwnerEntity", int)
     NETVAR(team, "CBaseEntity", "m_iTeamNum", int)
     NETVAR(spotted, "CBaseEntity", "m_bSpotted", bool)
-
+    NETVAR(CoordinateFrame, "CBaseEntity", "m_rgflCoordinateFrame", matrix3x4)
+    
     NETVAR(weapons, "CBaseCombatCharacter", "m_hMyWeapons", int[48])
     PNETVAR(wearables, "CBaseCombatCharacter", "m_hMyWearables", int)
 
@@ -621,6 +626,22 @@ public:
     Vector getVelocity() noexcept {
         return velocity();
     }
+
+    matrix3x4 EntityToWorldTransform(){
+        /*
+        	Assert( CBaseEntity::IsAbsQueriesValid() );
+
+	        if (IsEFlagSet(EFL_DIRTY_ABSTRANSFORM))
+	        {
+		        CalcAbsolutePosition(); // <---- Need to RE this function
+	        }
+        
+        
+        */
+
+        return CoordinateFrame();
+    }
+
 };
 
 

@@ -65,7 +65,20 @@ namespace Multipoints
         "Right Arm",
         "Right Forearm",
     };
+    struct PointScales {
+        float head = 0.0f;
+        float body = 0.0f;
+        float appendage = 0.0f;
+    };
+
+    struct HitboxPoints {
+        int HitBox;
+        std::vector<Vector> Points;
+    };
+
+    typedef std::vector<HitboxPoints> Multipoint;
 
     bool retrieveAll(Entity* entity, float multiPointsExpansion, float secondExpan, Vector(&multiPoints)[Multipoints::HITBOX_MAX][Multipoints::MULTIPOINTS_MAX], matrix3x4* bonesptr = nullptr, bool MatrixPassed = false);
+    bool retrieveAll(Entity* entity, float expansion, PointScales scales, Multipoint& points, matrix3x4* bonesptr = nullptr, bool MatrixPassed = false);
     bool retrieveOne(Entity* entity, float multiPointsExpansion, Vector(&multiPoints)[Multipoints::MULTIPOINTS_MAX], int desiredHitBox = Multipoints::HITBOX_HEAD);
 };

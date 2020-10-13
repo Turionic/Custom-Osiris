@@ -118,6 +118,10 @@ void Visuals::colorWorld() noexcept
         && !config->visuals.PrecacheWorld.enabled && !config->visuals.PrecacheProps.enabled && !config->visuals.NonCached.enabled && !config->visuals.NonCachedWorld.enabled && !config->visuals.all.enabled) {
         return;
     }
+
+    if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())
+        return;
+
     /*
     Material* normal = interfaces->materialSystem->createMaterial("normal", KeyValues::fromString("VertexLitGeneric", nullptr));
     Material* flat = interfaces->materialSystem->createMaterial("flat", KeyValues::fromString("UnlitGeneric", nullptr));
@@ -126,6 +130,9 @@ void Visuals::colorWorld() noexcept
     Material* pearlescent = interfaces->materialSystem->createMaterial("pearlescent", KeyValues::fromString("VertexLitGeneric", "$ambientonly 1 $phong 1 $pearlescent 3 $basemapalphaphongmask 1"));
     Material* metallic = interfaces->materialSystem->createMaterial("metallic", KeyValues::fromString("VertexLitGeneric", "$basetexture white $ignorez 0 $envmap env_cubemap $normalmapalphaenvmapmask 1 $envmapcontrast 1 $nofog 1 $model 1 $nocull 0 $selfillum 1 $halfambert 1 $znearer 0 $flat 1"));
     */ // TODO: Implement Chams for world
+
+    if (!interfaces->engine->isInGame())
+        return;
 
     for (short h = interfaces->materialSystem->firstMaterial(); h != interfaces->materialSystem->invalidMaterial(); h = interfaces->materialSystem->nextMaterial(h)) {
         const auto mat = interfaces->materialSystem->getMaterial(h);
@@ -245,6 +252,12 @@ void Visuals::transparentWorld() noexcept
     if (!config->visuals.worldtrans && !config->visuals.proptrans)
        return;
 
+    if (!interfaces->engine->isInGame())
+        return;
+
+    if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())
+        return;
+
     for (short h = interfaces->materialSystem->firstMaterial(); h != interfaces->materialSystem->invalidMaterial(); h = interfaces->materialSystem->nextMaterial(h)) {
         const auto mat = interfaces->materialSystem->getMaterial(h);
 
@@ -271,12 +284,15 @@ void Visuals::transparentWorld() noexcept
 void Visuals::NightModeExtended() noexcept {
     if (!config->visuals.NightMode.enabled)
         return;
+    if (!interfaces->engine->isInGame())
+        return;
 
     if (config->visuals.matgrey) {
         ConVar* mat_grey = interfaces->cvar->findVar("mat_drawgray");
         mat_grey->setValue(1);
     }
-    
+    if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())
+        return;
     ConVar* ambilight_r = interfaces->cvar->findVar("mat_ambient_light_r");
     ConVar* ambilight_g = interfaces->cvar->findVar("mat_ambient_light_g");
     ConVar* ambilight_b = interfaces->cvar->findVar("mat_ambient_light_b");
@@ -292,8 +308,6 @@ void Visuals::NightModeExtended() noexcept {
         ambilight_g->setValue(config->visuals.NightMode.color[1]);
         ambilight_b->setValue(config->visuals.NightMode.color[2]);
     }
-
-
 }
 
 void Visuals::modifySmoke(FrameStage stage) noexcept
@@ -301,6 +315,14 @@ void Visuals::modifySmoke(FrameStage stage) noexcept
     if ((stage != FrameStage::RENDER_START) && (stage != FrameStage::RENDER_END))
         return;
 
+    if (!interfaces->engine->isInGame())
+        return;
+
+    if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())
+        return;
+
+
+    //if(!memory->globalVars-)
 
     constexpr std::array smokeMaterials{
             "particle/vistasmokev1/vistasmokev1_emods",
@@ -639,11 +661,13 @@ void Visuals::bulletBeams(GameEvent* event) noexcept
     if (!player || !localPlayer)
         return;
 
-    if((player != localPlayer.get()) && !config->visuals.bulletTracersEnemy.enabled)
+    if(((player == localPlayer.get()) && !config->visuals.bulletTracers.enabled))
         return;
 
-    if (!localPlayer->isOtherEnemy(player))
+    if (localPlayer->isOtherEnemy(player) && !config->visuals.bulletTracersEnemy.enabled)
         return;
+
+
 
     Vector position;
     position.x = event->getFloat("x");
@@ -652,10 +676,12 @@ void Visuals::bulletBeams(GameEvent* event) noexcept
 
     BeamInfo_t beam_info;
     beam_info.m_nType = TE_BEAMPOINTS;
-    beam_info.m_pszModelName = "sprites/physbeam.vmt";
-    beam_info.m_nModelIndex = -1;
+    //beam_info.m_pszModelName = "sprites/physbeam.vmt";
+    //beam_info.m_nModelIndex = -1;
+    beam_info.m_pszModelName = "sprites/purplelaser1.vmt";
+    beam_info.m_nModelIndex = interfaces->modelInfo->getModelIndex("sprites/purplelaser1.vmt");
     beam_info.m_flHaloScale = 0.f;
-    beam_info.m_flLife = 4.f;
+    beam_info.m_flLife = player->isOtherEnemy(localPlayer.get()) ? .8f : 1.5f;
     beam_info.m_flWidth = 1.f;
     beam_info.m_flEndWidth = 1.f;
     beam_info.m_flFadeLength = 0.1f;
@@ -680,6 +706,17 @@ void Visuals::bulletBeams(GameEvent* event) noexcept
     auto beam = memory->renderBeams->CreateBeamPoints(beam_info);
     if (beam)
         memory->renderBeams->DrawBeam(beam);
+
+
+    if (player->isOtherEnemy(localPlayer.get())) {
+        beam_info.m_pszModelName = "sprites/physbeam.vmt";
+        beam_info.m_nModelIndex = -1;
+        beam_info.m_flLife = .7f;
+        auto beam = memory->renderBeams->CreateBeamPoints(beam_info);
+        if (beam)
+            memory->renderBeams->DrawBeam(beam);
+    }
+
 }
 
 #include "StreamProofESP.h"

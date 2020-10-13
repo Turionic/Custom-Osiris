@@ -79,7 +79,7 @@ void Debug::DrawBox(coords start, coords end) {
     if ((start.x > end.x) || (end.x > Screen.Width) || (start.x < 0))
        return;
 
-    interfaces->surface->setDrawColor(config->debug.box.color[0], config->debug.box.color[1], config->debug.box.color[2], 180);
+    interfaces->surface->setDrawColor(config->debug.box.color[0]*255, config->debug.box.color[1]*255, config->debug.box.color[2]*255, 180);
     interfaces->surface->drawFilledRect(start.x, start.y, end.x, end.y);
 
 
@@ -116,6 +116,10 @@ static std::wstring HitGroups[] = {
 };
 
 void Debug::Logger(GameEvent *event) {
+
+    if (!config->debug.DamageLog.enabled)
+        return;
+
     if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())
         return;
 
@@ -139,6 +143,12 @@ void Debug::Logger(GameEvent *event) {
         std::wstring weapon = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(event->getString("weapon"));
 
         Debug::LogItem logEntry;
+        if (r_health > 0) {
+            logEntry.color = { (int)config->debug.DamageLog.color[0] * 255,(int)config->debug.DamageLog.color[1] * 255, (int)config->debug.DamageLog.color[2] * 255 };
+        }
+        else {
+            logEntry.color = { 255,0,0 };
+        }
         std::wstring text = {L"Hit " + playerName + L" for " + std::to_wstring(health) + L"hp in the" + HitGroups[event->getInt("hitgroup")] + L"with a " + weapon + L" || " + std::to_wstring(r_health) + L"hp remaining"};
         logEntry.text.push_back(text);
         logEntry.time_of_creation = memory->globalVars->realtime;
@@ -165,6 +175,32 @@ void Debug::Logger(GameEvent *event) {
 
 }
 
+#include <iomanip>
+template< typename T >
+std::wstring to_hex_wstring(T val)
+{
+    std::wostringstream wstr;  // note the 'w'
+    wstr << std::setfill(L'0') << std::setw(2*sizeof(T)) << std::hex << (uint_least8_t)val;
+    return wstr.str();
+}
+
+
+template<class T>
+std::wstring VarToWString(std::wstring varName, T &var, bool set = false ) {
+    if (!set) {
+        return std::wstring{ varName + L"(" + to_hex_wstring(&var) + L"): " + to_hex_wstring(var) + L" | " + std::to_wstring(var) };
+    }
+
+}
+
+template<class T>
+std::wstring VarToWStringCast(std::wstring varName, T& var, bool set = false) {
+    if (!set) {
+        return std::wstring{ varName + L"(" + to_hex_wstring(&var) + L"): " + to_hex_wstring(var) + L" | " + std::to_wstring((char)var) };
+    }
+
+}
+
 template <class T>
 static void EraseDeque(std::deque<T>& de, int offset) {
     for (int i = de.size(); i > offset; i--) {
@@ -178,6 +214,12 @@ static void EraseDeque(std::deque<T>& de, int offset) {
                 interfaces->engine->clientCmdUnrestricted(cmd);
                 delete cmd;
             }
+            if (!de.back().PrintToScreen) {
+                interfaces->engine->clientCmdUnrestricted("echo \"\"");
+            }
+
+
+
         }
         de.pop_back();
     }
@@ -420,14 +462,23 @@ void Debug::AnimStateMonitor() noexcept
             std::wstring state{ L"AnimState: " + AnimStateStr };
             std::wstring order{ L"Order: " + std::to_wstring(AnimLayer->order) };
             std::wstring playbackrate{ L"Playback Rate: " + std::to_wstring(AnimLayer->playbackRate) };
+            /*
+                float m_flTimeSinceStartedMoving; //0x100
+                float m_flTimeSinceStoppedMoving; //0x104
+            */
+            std::wstring timeSinceStartMoving{ L"Time Since Started Moving: " + std::to_wstring(AnimState->m_flTimeSinceStartedMoving) };
+            std::wstring timeSinceStoppedMoving{ L"Time Since Started Moving: " + std::to_wstring(AnimState->m_flTimeSinceStoppedMoving) };
+            std::wstring speedFrac{ L"stopToFullRunningFraction: " + std::to_wstring(AnimState->stopToFullRunningFraction)};
 
 
 
 
-
-            std::vector<std::wstring> strings{ playername, clientblend, dispatchedsrc, dispatcheddst, blendin, cycle, prevcycle, weight, weightdelta, overlay, state, sequence, order, playbackrate };
+            std::vector<std::wstring> strings{ playername, clientblend, dispatchedsrc, dispatcheddst, blendin, cycle, prevcycle, weight, weightdelta, overlay, state, sequence, order, playbackrate, timeSinceStartMoving,timeSinceStoppedMoving, speedFrac};
 
             if (config->debug.AnimExtras) {
+
+                
+                
                 std::wstring currPitch{ L"Current Pitch: " + std::to_wstring(AnimState->m_flPitch) };
                 std::wstring currLBY{ L"Current LBY: " + std::to_wstring(AnimState->m_flGoalFeetYaw) };
                 std::wstring currLBYFEETDelta{ L"LBY/Feet Delta: " + std::to_wstring(AnimState->m_flGoalFeetYaw - entity->eyeAngles().y) };
@@ -565,20 +616,25 @@ void Debug::AnimStateMonitor() noexcept
                 }
 
                 std::wstring Resolver{ L"RESOLVER INFO: " };
-                std::wstring simTime{ L"Simulation Time: " + std::to_wstring(record->prevSimTime) };
+                std::wstring simTime{ L"Simulation Time: " + std::to_wstring(record->ResolveInfo.prevSimTime) };
                 std::wstring wasTargeted{ L"Was Targeted: " + std::to_wstring(record->wasTargeted) };
                 std::wstring FiredUpon{ L"Fired Upon: " + std::to_wstring(record->FiredUpon) };
-                std::wstring WasUpdated{ L"Was Updated: " + std::to_wstring(record->wasUpdated) };
+                std::wstring WasUpdated{ L"Was Updated: " + std::to_wstring(record->ResolveInfo.wasUpdated) };
                 std::wstring missedshots{ L"Missed Shots: " + std::to_wstring(record->missedshots) };
+                std::wstring totalshots{ L"Total Shots: " + std::to_wstring(record->totalshots) };
                 std::wstring lastworking{ L"Last Working Shot: " + std::to_wstring(record->lastworkingshot) };
-                std::wstring PrevEye{ L"Previous Eye Angles (Y): " + std::to_wstring(record->PreviousEyeAngle) };
-                std::wstring UpdateEyes{ L"Eye Angles On Sim Time Update: " + std::to_wstring(record->eyeAnglesOnUpdate) };
+                std::wstring PrevEye{ L"Current Eye Angles (Y): " + std::to_wstring(record->ResolveInfo.CurrentSet.EyeAngles.y) };
+                std::wstring UpdateEyes{ L"Eye Angles On Sim Time Update: " + std::to_wstring(record->ResolveInfo.Original.EyeAngles.y) };
                 std::wstring PrevHealth{ L"Previous Entity Health: " + std::to_wstring(record->prevhealth) };
-                std::wstring PrevDesync{ L"Previous Desync Angle: " + std::to_wstring(record->PreviousDesyncAng) };
+                std::wstring PrevDesync{ L"Current Desync Angle: " + std::to_wstring(record->ResolveInfo.CurrentSet.LBYAngle) };
                 std::wstring PrevVelocity{ L"Prev Velocity: " + std::to_wstring(record->prevVelocity) };
                 std::wstring MultiExpan{ L"(DY) MultiPoint Expansion: " + std::to_wstring(record->multiExpan)};
 
+                std::wstring wasLBY{ L"Was LBY Updated: " + std::to_wstring(record->lbyUpdated) };
+                std::wstring nextLBY{ L"Next Predicted LBY Update " + std::to_wstring(record->lbyNextUpdate) };
+
                 std::wstring invalid{ L"Invalid: " + std::to_wstring(record->invalid) };
+
 
                 strings.push_back(Resolver);
                 strings.push_back(simTime);
@@ -586,6 +642,7 @@ void Debug::AnimStateMonitor() noexcept
                 strings.push_back(FiredUpon);
                 strings.push_back(WasUpdated);
                 strings.push_back(missedshots);
+                strings.push_back(totalshots);
                 strings.push_back(lastworking);
                 strings.push_back(PrevEye);
                 strings.push_back(UpdateEyes);
@@ -593,6 +650,8 @@ void Debug::AnimStateMonitor() noexcept
                 strings.push_back(PrevDesync);
                 strings.push_back(PrevVelocity);
                 strings.push_back(MultiExpan);
+                strings.push_back(wasLBY);
+                strings.push_back(nextLBY);
                 strings.push_back(invalid);
 
             }
@@ -632,12 +691,31 @@ std::vector<std::wstring> Debug::formatRecord(Backtrack::Record record, Entity* 
     std::wstring playername{ L"PlayerName: " + std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entity->getPlayerName(true)) };
     std::wstring bindex{ L"Index: " + std::to_wstring(index)};
     std::wstring simtime{ L"Simulation Time: " + std::to_wstring(record.simulationTime) };
+    std::wstring onshot{ L"Onshot: " + std::to_wstring(record.onshot) };
+    std::wstring lbyupdate{ L"LBY Update: " + std::to_wstring(record.lbyUpdated) };
 
-
-    strings = { playername, bindex, simtime};
+    strings = { playername, bindex, simtime, onshot, lbyupdate};
     return strings;
 
 
+
+}
+
+
+
+static std::vector<std::wstring> byteArraytoText(std::wstring variableName, unsigned char* array, int sizeofarray) {
+    std::vector<std::wstring> text;
+    text.push_back(std::wstring{ variableName + L":" });
+    unsigned char typeinit = (unsigned char)0;
+    for (int i = 0; i < sizeofarray; i++) {
+        typeinit = (unsigned char)*(array + (sizeof(unsigned char)*i));
+        std::wostringstream IntRep;
+        std::wostringstream inc;
+        IntRep << std::setfill(L'0') << std::setw(3) << (uint_least8_t)typeinit;
+        inc << std::setfill(L'0') << std::setw(3) << (i);
+        text.push_back(std::wstring{ L"   Byte [" + inc.str() + L"]:  (" + to_hex_wstring(typeinit) + L") : " + IntRep.str() +  L" : " + std::to_wstring(static_cast<char>(typeinit))});
+    }
+    return text;
 
 }
 
@@ -703,12 +781,28 @@ void Debug::DrawDesyncInfo() {
 	if (!localPlayer)
 		return;
 
+    AnimState* animstate = localPlayer->getAnimstate();
+
+    Vector CurrEye = localPlayer->eyeAngles();
+
+    std::wstring Desync{ L"Anti-Aim/Desync Info:" };
 	std::wstring MaxAng{ L"Max Possible Desync Angle: " + std::to_wstring(localPlayer->getMaxDesyncAngle()) };
-	std::wstring CurrYaw{ L"Current Player Yaw: "  };
-	std::wstring CurrPitch{ L"Current Player Pitch: " };
+    std::wstring CurrYaw{ L"(AnimState LBY) Yaw: " + std::to_wstring(animstate->m_flCurrentFeetYaw) };
+    std::wstring lbyYaw{ L"(LocalPlayerAA LBY LBY) Yaw: " + std::to_wstring(AntiAim::LocalPlayerAA.lby.y) };
+    std::wstring reyeYaw{ L"(LocalPlayerAA Real Eye) Yaw: " + std::to_wstring(AntiAim::LocalPlayerAA.real.y) };
+    std::wstring feyeYaw{ L"(LocalPlayerAA Fake Eye) Yaw: " + std::to_wstring(AntiAim::LocalPlayerAA.fake.y) };
+    std::wstring pblbyrYaw{ L"(Pre-Break LBY Real) Yaw: " + std::to_wstring(AntiAim::LocalPlayerAA.PreBreakAngle) };
+    std::wstring pblbyfYaw{ L"(Pre-Break LBY Fake) Yaw: " + std::to_wstring(AntiAim::LocalPlayerAA.PreBreakAngleFake) };
+    std::wstring CurrPitch{ L"(Real) Pitch: " + std::to_wstring(CurrEye.x) };
+    std::wstring lastlby{ L"Last LBY: " + std::to_wstring(AntiAim::LocalPlayerAA.lastlbyval) };
+    std::wstring nextlby{ L"Next LBY: " + std::to_wstring(AntiAim::LocalPlayerAA.lbyNextUpdate) };
+    std::wstring netset{ L"netset: " + std::to_wstring(AntiAim::LocalPlayerAA.netset) };
+    std::wstring lastout{ L"lastOutgoing: " + std::to_wstring(AntiAim::LocalPlayerAA.lastOutgoing) };
+    std::wstring OutSequenceNr = { L"OutSequenceNr: " + std::to_wstring(AntiAim::LocalPlayerAA.netchan.OutSequenceNr) };
+    //std::wstring OutSequenceNr = VarToWString(std::wstring{ L"OutSequenceNr:" }, AntiAim::LocalPlayerAA.netchan.OutSequenceNr);
+    std::vector<std::wstring> text = {Desync, std::wstring{L""}, MaxAng,CurrYaw,lbyYaw,reyeYaw,feyeYaw,pblbyrYaw,pblbyfYaw,CurrPitch,lastlby,nextlby,netset,lastout,OutSequenceNr,std::wstring{L""}};
 
-
-
+    Draw_Text(text);
 
 
 }
@@ -797,6 +891,256 @@ void Debug::CustomHUD() {
 }
 
 
+/*
+
+    int OutSequenceNr;
+    int InSequenceNr;
+    int OutSequenceNrAck;
+    int OutReliableState;
+    int InReliableState;
+    int chokedPackets;
+
+
+*/
+
+/*
+
+
+    //std::byte pad[24];
+
+std::byte pad[20];
+unsigned char m_bProcessingMessages;
+unsigned char m_bShouldDelete;
+char pad_0x0016[0x2];
+
+int OutSequenceNr;
+int InSequenceNr;
+int OutSequenceNrAck;
+int OutReliableState;
+int InReliableState;
+int chokedPackets;
+//bf_write m_StreamReliable; //0x0030 
+std::byte  m_StreamReliable[24];
+//CUtlMemory m_ReliableDataBuffer; //0x0048 
+std::byte m_ReliableDataBuffer[12];
+//bf_write m_StreamUnreliable; //0x0054 
+std::byte  m_StreamUnreliable[24];
+//CUtlMemory m_UnreliableDataBuffer; //0x006C 
+std::byte  m_UnreliableDataBuffer[12];
+//bf_write m_StreamVoice; //0x0078 
+std::byte m_StreamVoice[24];
+//CUtlMemory m_VoiceDataBuffer; //0x0090 
+std::byte m_VoiceDataBuffer[12];
+__int32 m_Socket; //0x009C 
+__int32 m_StreamSocket; //0x00A0 
+__int32 m_MaxReliablePayloadSize; //0x00A4 
+char pad_0x00A8[0x4]; //0x00A8
+//netadr_t remote_address; //0x00AC 
+std::byte remote_address[12];
+float last_received; //0x00B8 
+char pad_0x00BC[0x4]; //0x00BC
+float connect_time; //0x00C0 
+char pad_0x00C4[0x4]; //0x00C4
+__int32 m_Rate; //0x00C8 
+float m_fClearTime; //0x00CC 
+char pad_0x00D0[0x8]; //0x00D0
+//CUtlVector m_WaitingList[0]; //0x00D8 
+std::byte  m_WaitingList0[12];
+//CUtlVector m_WaitingList[1]; //0x00EC 
+std::byte m_WaitingList1[12];
+char pad_0x0100[0x4120]; //0x0100
+__int32 m_PacketDrop; //0x4220 
+char m_Name[32]; //0x4224 
+__int32 m_ChallengeNr; //0x4244 
+float m_Timeout; //0x4248 
+//INetChannelHandler* m_MessageHandler; //0x424C 
+std::byte m_MessageHandler[4];
+//CUtlVector m_NetMessages; //0x4250 
+std::byte m_NetMessages[12];
+__int32 m_pDemoRecorder; //0x4264 
+__int32 m_nQueuedPackets; //0x4268 
+float m_flInterpolationAmount; //0x426C 
+float m_flRemoteFrameTime; //0x4270 
+float m_flRemoteFrameTimeStdDeviation; //0x4274 
+float m_nMaxRoutablePayloadSize; //0x4278 
+__int32 m_nSplitPacketSequence; //0x427C 
+char pad_0x4280[0x14]; //0x4280
+
+*/
+
+
+void Debug::NetworkChannelDebug(NetworkChannel* netchannel) {
+
+   
+    if (!netchannel)
+        return;
+    interfaces->surface->setTextColor(config->debug.networkchannel.color);
+    std::wstring netchann = { L"Network Channel: " };
+    std::wstring chockedPackets = {L"chokedPackets: " + std::to_wstring(netchannel->chokedPackets)};
+    std::wstring InReliableState = { L"InReliableState: " + std::to_wstring(netchannel->InReliableState) };
+    std::wstring OutReliableState = { L"OutReliableState: " + std::to_wstring(netchannel->OutReliableState) };
+    std::wstring InSequenceNr = { L"InSequenceNr: " + std::to_wstring(netchannel->InSequenceNr) };
+    std::wstring OutSequenceNr = { L"OutSequenceNr: " + std::to_wstring(netchannel->OutSequenceNr) };
+    std::wstring OutSequenceNrAck = { L"OutSequenceNrAck: " + std::to_wstring(netchannel->OutSequenceNrAck) };
+    std::vector<std::wstring> text = {netchann, std::wstring{L""}, chockedPackets, InReliableState, OutReliableState, InReliableState, InSequenceNr, OutSequenceNr,OutSequenceNrAck};
+    //VarToWString(std::wstring{ L"OutSequenceNr:" }, AntiAim::LocalPlayerAA.netchan.OutSequenceNr);
+    // , std::wstring{L""}
+    /*
+    
+    text.push_back(VarToWStringCast(std::wstring{L"netchannel->m_bProcessingMessages"}, netchannel->m_bProcessingMessages));
+    text.push_back(VarToWStringCast(std::wstring{L"netchannel->m_bShouldDelete" },netchannel->m_bShouldDelete));
+    text.push_back(VarToWString(std::wstring{L"netchannel->last_received" }, netchannel->last_received));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_ChallengeNr" }, netchannel->m_ChallengeNr));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_fClearTime" }, netchannel->m_fClearTime));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_flInterpolationAmount" }, netchannel->m_flInterpolationAmount));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_flRemoteFrameTime" }, netchannel->m_flRemoteFrameTime));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_flRemoteFrameTimeStdDeviation" }, netchannel->m_flRemoteFrameTimeStdDeviation));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_MaxReliablePayloadSize" }, netchannel->m_MaxReliablePayloadSize));
+    //text.push_back(VarToWString(std::wstring{L"netchannel->m_MessageHandler" }, netchannel->m_MessageHandler));
+    text.push_back(VarToWStringCast(std::wstring{L"netchannel->m_Name" }, netchannel->m_Name));
+    //text.push_back(VarToWString(std::wstring{L"netchannel->m_NetMessages" }, netchannel->m_NetMessages));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_nMaxRoutablePayloadSize" }, netchannel->m_nMaxRoutablePayloadSize));
+
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_nQueuedPackets" }, netchannel->m_nQueuedPackets));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_nSplitPacketSequence" }, netchannel->m_nSplitPacketSequence));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_PacketDrop" }, netchannel->m_PacketDrop));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_pDemoRecorder" }, netchannel->m_pDemoRecorder));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_Rate" }, netchannel->m_Rate));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_Socket;" }, netchannel->m_Socket));
+    text.push_back(VarToWString(std::wstring{L"netchannel->m_Timeout" }, netchannel->m_Timeout));
+    */
+    Draw_Text(text);
+    //text = byteArraytoText(std::wstring{L"m_ReliableDataBuffer"}, (unsigned char*)netchannel->m_ReliableDataBuffer, 12);
+    //Draw_Text(text);
+    //text = byteArraytoText(std::wstring{ L"m_StreamVoice" }, (unsigned char*)netchannel->m_StreamVoice, 24);
+    //Draw_Text(text);
+}
+
+/*
+class ClientState
+{
+public:
+    void ForceFullUpdate()
+    {
+        deltaTick = -1;
+    }
+    std::byte		pad0[0x9C];
+    NetworkChannel* netChannel;
+    int				challengeNr;
+    std::byte		pad1[0x64];
+    int				signonState;
+    std::byte		pad2[0x8];
+    float			nextCmdTime;
+    int				serverCount;
+    int				currentSequence;
+    std::byte		pad3[0x54];
+    int				deltaTick;
+    bool			paused;
+    std::byte		pad4[0x7];
+    int				viewEntity;
+    int				playerSlot;
+    char			levelName[260];
+    char			levelNameShort[80];
+    char			groupName[80];
+    std::byte		pad5[0x5C];
+    int				maxClients;
+    std::byte		pad6[0x4984];
+    float			lastServerTickTime;
+    bool			InSimulation;
+    std::byte		pad7[0x3];
+    int				oldTickcount;
+    float			tickRemainder;
+    float			frameTime;
+    int				lastOutgoingCommand;
+    int				chokedCommands;
+    int				lastCommandAck;
+    int				commandAck;
+    int				soundSequence;
+    std::byte		pad8[0x50];
+    Vector			angViewPoint;
+    std::byte		pad9[0xD0];
+    EventInfo* pEvents;
+};
+
+
+*/
+
+
+void Debug::ClientstateDebug() {
+
+    ClientState* clientState = memory->clientState;
+    if (!clientState)
+        return;
+    interfaces->surface->setTextColor(config->debug.clientstate.color);
+    std::wstring clientStat = { L"Client State: " };
+    std::wstring challengeNr = { L"challengeNr: " + std::to_wstring(clientState->challengeNr) };
+    std::wstring signonState = { L"signonState: " + std::to_wstring(clientState->signonState) };
+    std::wstring nextCmdTime = { L"nextCmdTime: " + std::to_wstring(clientState->nextCmdTime) };
+    std::wstring serverCount = { L"serverCount: " + std::to_wstring(clientState->serverCount) };
+    std::wstring currentSequence = { L"currentSequence: " + std::to_wstring(clientState->currentSequence) };
+    std::wstring deltaTick = { L"deltaTick: " + std::to_wstring(clientState->deltaTick) };
+    std::wstring paused = { L"paused: " + std::to_wstring(clientState->paused) };
+    std::wstring viewEntity = { L"viewEntity: " + std::to_wstring(clientState->viewEntity) };
+    std::wstring maxClients = { L"maxClients: " + std::to_wstring(clientState->maxClients) };
+    std::wstring lastServerTickTime = { L"lastServerTickTime: " + std::to_wstring(clientState->lastServerTickTime) };
+    std::wstring InSimulation = { L"InSimulation: " + std::to_wstring(clientState->InSimulation) };
+    std::wstring oldTickcount = { L"oldTickcount: " + std::to_wstring(clientState->oldTickcount) };
+    std::wstring tickRemainder = { L"tickRemainder: " + std::to_wstring(clientState->tickRemainder) };
+    std::wstring frameTime = { L"frameTime: " + std::to_wstring(clientState->frameTime) };
+    std::wstring lastOutgoingCommand = { L"lastOutgoingCommand: " + std::to_wstring(clientState->lastOutgoingCommand) };
+    std::wstring chokedCommands = { L"chokedCommands: " + std::to_wstring(clientState->chokedCommands) };
+    std::wstring lastCommandAck = { L"lastCommandAck: " + std::to_wstring(clientState->lastCommandAck) };
+    std::wstring commandAck = { L"commandAck: " + std::to_wstring(clientState->commandAck) };
+    std::wstring soundSequence = { L"soundSequence: " + std::to_wstring(clientState->soundSequence) };
+
+
+    std::vector<std::wstring> text = { clientStat , std::wstring{L""}, challengeNr , signonState , nextCmdTime , serverCount, currentSequence, deltaTick, paused,viewEntity, maxClients, lastServerTickTime, InSimulation,oldTickcount, tickRemainder,frameTime,lastOutgoingCommand,
+                                       chokedCommands, lastCommandAck, commandAck, soundSequence, std::wstring{L""} };
+    Draw_Text(text);
+ 
+}
+/*
+struct GlobalVars {
+    const float realtime;
+    const int framecount;
+    const float absoluteFrameTime;
+    const std::byte pad[4];
+    float currenttime;
+    float frametime;
+    const int maxClients;
+    const int tickCount;
+    const float intervalPerTick;
+
+    float GetIPT() noexcept;
+    float serverTime(UserCmd* = nullptr) noexcept;
+};
+
+
+*/
+
+void Debug::GlobalVarDebug() {
+
+    GlobalVars* globalvar = memory->globalVars;
+    if (!globalvar)
+        return;
+    interfaces->surface->setTextColor(config->debug.globalvars.color);
+    std::wstring globvar = { L"Global Vars: " };
+    std::wstring realtime = std::wstring{ L"realtime: " + std::to_wstring(globalvar->realtime)};
+    std::wstring framecount = std::wstring{ L"framecount: " + std::to_wstring(globalvar->framecount) };
+    std::wstring absoluteFrameTime = std::wstring{ L"absoluteFrameTime: " + std::to_wstring(globalvar->absoluteFrameTime) };
+    std::wstring currenttime = std::wstring{ L"currenttime: " + std::to_wstring(globalvar->currenttime) };
+    std::wstring frametime = std::wstring{ L"frametime: " + std::to_wstring(globalvar->frametime) };
+    std::wstring maxClients = std::wstring{ L"maxClients: " + std::to_wstring(globalvar->maxClients) };
+    std::wstring tickCount = std::wstring{ L"tickCount: " + std::to_wstring(globalvar->tickCount) };
+    std::wstring GetIPT = std::wstring{ L"GetIPT(): " + std::to_wstring(globalvar->GetIPT()) };
+    std::wstring serverTime = std::wstring{ L"serverTime(): " + std::to_wstring(globalvar->serverTime()) };
+
+    std::vector<std::wstring> text = { globvar,  std::wstring{L""} ,realtime, framecount, absoluteFrameTime,currenttime,frametime,maxClients,tickCount, GetIPT, serverTime, std::wstring{L""} };
+
+    Draw_Text(text);
+
+
+}
 
 #include "Hacks/Walkbot/nav_file.h"
 #include "Hacks/Walkbot/nav_structs.h"
@@ -815,6 +1159,14 @@ void Debug::run(){
     Screen.CurrPosH = 5;
     Screen.CurrColumnMax = 0;
 
+    
+    if (config->debug.airstucktoggle) {
+        std::wstring BASESTRING = L"AIRSTUCK";
+        const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Surface::font, BASESTRING.c_str());
+        interfaces->surface->setTextColor(config->debug.animStateMon.color);
+        interfaces->surface->setTextPosition((Screen.Width - text_size_w) - 5, ((Screen.Height / 2) - (text_size_h / 2) - text_size_h));
+        interfaces->surface->printText(BASESTRING.c_str());
+    }
 
     if (config->debug.CustomHUD.enabled)
         CustomHUD();
@@ -828,9 +1180,16 @@ void Debug::run(){
     if (config->debug.backtrack.color.enabled)
         BacktrackMonitor();
 
+    if (config->debug.networkchannel.enabled)
+        NetworkChannelDebug();
 
+    if (config->debug.clientstate.enabled)
+        ClientstateDebug();
 
-    if (config->debug.FPSBar) {
+    if (config->debug.globalvars.enabled)
+        GlobalVarDebug();
+
+    if (config->debug.graph.enabled) {
         coords start, end;
         std::wstring BASESTRING = L"AAAA";
         const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Surface::font, BASESTRING.c_str());
@@ -842,17 +1201,30 @@ void Debug::run(){
             start.y -= (text_size_h * 2);
             end.y -= (text_size_h * 2);
         }
-        static auto frameRate = 1.0f;
-        frameRate = 0.9f * frameRate + 0.1f * memory->globalVars->absoluteFrameTime;
-        DrawGraphBox(start, end, 1.0f, 150.0f, 1.0f / frameRate, 0, L"FPS");
+        if (config->debug.graph.FPSBar) {
+            static auto frameRate = 1.0f;
+            frameRate = 0.9f * frameRate + 0.1f * memory->globalVars->absoluteFrameTime;
+            DrawGraphBox(start, end, 1.0f, 150.0f, 1.0f / frameRate, 0, L"FPS");
+            end.x = start.x - 3;
+            start.x = (start.x - 3) - text_size_w;
+        }
 
-        float latency = 0.0f;
-        if (auto networkChannel = interfaces->engine->getNetworkChannel(); networkChannel && networkChannel->getLatency(0) > 0.0f)
-            latency = networkChannel->getLatency(0);
+        if (config->debug.graph.Ping) {
+            float latency = 0.0f;
+            if (auto networkChannel = interfaces->engine->getNetworkChannel(); networkChannel && networkChannel->getLatency(0) > 0.0f)
+                latency = networkChannel->getLatency(0);
 
-        end.x = start.x - 3;
-        start.x = (start.x - 3) - text_size_w;
-        DrawGraphBox(start, end, 1.0f, 200.0f, latency * 1000, 0, L"PING");
+            DrawGraphBox(start, end, 1.0f, 200.0f, latency * 1000, 0, L"PING");
+            end.x = start.x - 3;
+            start.x = (start.x - 3) - text_size_w;
+
+        }
+        if (config->misc.chokedPackets && config->debug.graph.FakeLag) {
+            DrawGraphBox(start, end, 0, config->misc.chokedPackets, interfaces->engine->getNetworkChannel()->chokedPackets, 0, L"LAG");
+            end.x = start.x - 3;
+            start.x = (start.x - 3) - text_size_w;
+        }
+
     }
 
     PrintLog();
@@ -1011,13 +1383,22 @@ void Debug::run(){
                     interfaces->surface->printText(BASESTRING.c_str());
 
             }
-            if (config->debug.indicators.choke && (interfaces->engine->getNetworkChannel()->chokedPackets > 1)) {
-                std::wstring BASESTRING = L"CHOKE";
-                const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Surface::font, BASESTRING.c_str());
-                interfaces->surface->setTextColor(config->debug.animStateMon.color);
-                interfaces->surface->setTextPosition((Screen.Width - text_size_w) - 5, ((Screen.Height / 2) - (text_size_h / 2) - text_size_h));
-                interfaces->surface->printText(BASESTRING.c_str());
+
+
+
+        }
+        if ((config->debug.indicators.choke && (interfaces->engine->getNetworkChannel()->chokedPackets > 1)) || config->debug.airstucktoggle) {
+            std::wstring BASESTRING;
+            if (config->debug.airstucktoggle) {
+                BASESTRING = L"AIRSTUCK";
             }
+            else {
+                BASESTRING = L"CHOKE";
+            }
+            const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Surface::font, BASESTRING.c_str());
+            interfaces->surface->setTextColor(config->debug.animStateMon.color);
+            interfaces->surface->setTextPosition((Screen.Width - text_size_w) - 5, ((Screen.Height / 2) - (text_size_h / 2) - text_size_h));
+            interfaces->surface->printText(BASESTRING.c_str());
         }
 
 
@@ -1055,13 +1436,18 @@ void Debug::AnimStateModifier() noexcept
                 continue;
 
             if (config->debug.animstatedebug.manual) {
-                entity->eyeAngles().x = config->debug.Pitch;
-                //entity->eyeAngles().y = config->debug.Yaw;
-                //AnimState->m_flGoalFeetYaw = config->debug.GoalFeetYaw;
+                entity->eyeAngles().x += config->debug.Pitch;
+                Vector ABS = entity->getAbsAngle();
+                ABS.y += config->debug.ABS;
+                entity->setAbsAngle(ABS);
+                entity->eyeAngles().y += config->debug.Yaw;
+                AnimState->m_flGoalFeetYaw += config->debug.GoalFeetYaw;
+                entity->UpdateState(AnimState, entity->eyeAngles());
             }
 
             if (config->debug.animstatedebug.resolver.enabled) {
-                Resolver::BasicResolver(entity, config->debug.animstatedebug.resolver.missed_shots);
+                //Resolver::BasicResolver(entity, config->debug.animstatedebug.resolver.missed_shots);
+                Resolver::AnimStateResolver(entity);
             }
 
             //AnimState = entity->getAnimstate();

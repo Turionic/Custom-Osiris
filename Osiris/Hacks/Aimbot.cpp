@@ -321,8 +321,10 @@ void Aimbot::run(UserCmd* cmd) noexcept
 
 void Aimbot::oldstyle(UserCmd* cmd) noexcept
 {
-    if (!localPlayer || localPlayer->nextAttack() > memory->globalVars->serverTime())
+    if (!localPlayer || localPlayer->nextAttack() > memory->globalVars->serverTime()) {
+        Resolver::TargetedEntity = localPlayer.get();
         return;
+    }
 
     const auto activeWeapon = localPlayer->getActiveWeapon();
     if (!activeWeapon || !activeWeapon->clip())
@@ -377,11 +379,12 @@ void Aimbot::oldstyle(UserCmd* cmd) noexcept
 
 
         Entity* ent_save = Resolver::TargetedEntity;
-        if (!ent_save || ent_save->isDormant() || !ent_save->isAlive()) {
-            ent_save = localPlayer.get();
-            Resolver::TargetedEntity = localPlayer.get();
+        if (ent_save != localPlayer.get()) {
+            if (!ent_save || ent_save->isDormant() || !ent_save->isAlive()) {
+                ent_save = localPlayer.get();
+                Resolver::TargetedEntity = localPlayer.get();
+            }
         }
-
         for (int i = 1; i <= interfaces->engine->getMaxClients(); i++) {
             Entity* entity;
             if (Resolver::TargetedEntity && (Resolver::TargetedEntity != localPlayer.get()))
@@ -689,9 +692,14 @@ static float worldToScreen(const Vector& in) noexcept
 void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector& wallbangVector) noexcept {
 
     // Does local player exists
-    if (!localPlayer || localPlayer->nextAttack() > memory->globalVars->serverTime() || localPlayer->isDormant() || !localPlayer->isAlive())
+    if (!localPlayer || localPlayer->nextAttack() > memory->globalVars->serverTime() || localPlayer->isDormant() || !localPlayer->isAlive()) {
+        if (localPlayer) {
+            if (!localPlayer->isAlive()) {
+                Resolver::TargetedEntity = localPlayer.get();
+            }
+        }
         return;
-
+    }
     //Get the active weapon
     const auto activeWeapon = localPlayer->getActiveWeapon();
     if (!activeWeapon || !activeWeapon->clip()) // does active weapon exist and have a clip in
@@ -875,6 +883,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
     Vector BestPoint;
     Backtrack::Record* backup_rec;
     EntityVal Save; // Replace Entity* Target with this!
+    int hitbox_save = -1;
     for (auto enemy : enemies) {
 
 
@@ -898,11 +907,14 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
 
         */
         auto brecord = &Backtrack::records[enemy.entity]; // Get Backtrack Record
-        if (!brecord->empty() && (brecord->size() > 1) && Backtrack::valid(brecord->front().simulationTime) && (enemy.wasTargeted /*|| Backtrack::ImportantTick(*brecord)*/)) { // Sanity // 
+
+        
+
+        if (config->backtrack.enabled && !brecord->empty() && (brecord->size() > 0) && Backtrack::valid(brecord->front().simulationTime) && (enemy.wasTargeted /*|| Backtrack::ImportantTick(*brecord)*/)) { // Sanity // 
 
             bool ImportantTick = Backtrack::ImportantTick(*brecord);
-            if ((!enemy.isVisible || ImportantTick || (enemy.entity_ptr->velocity().length2D() > 170.0f)) && config->backtrack.enabled) { // if Enemy isn't visible, or their velocity is  > 100, we go for bt
-                for (int i = (brecord->front().onshot || brecord->front().lbyUpdated) ? 0 : 3; i < (brecord->size() - 1); i++) { // Ignore the last 2 records, i've noticed the likely hood of hitting those is essentially nonexistant
+            if ((!enemy.isVisible || ImportantTick /*|| (enemy.entity_ptr->velocity().length2D() > 170.0f)*/)){ // if Enemy isn't visible, or their velocity is  > 100, we go for bt
+                for (int i = ((ImportantTick) ? 0 : 3); i < (brecord->size()-1); i++) { // Ignore the last 2 records, i've noticed the likely hood of hitting those is essentially nonexistant
                     if (i >= brecord->size()) {
                         break;
                     }
@@ -912,8 +924,20 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                     }
                     else {
                         if ((localPlayer->canSeePoint(c_record->head)) || (c_record->onshot && config->aimbot[weaponIndex].onshot) || c_record->lbyUpdated) { // Visible backtrack, onshot, or lbyUpdated? Lets go for it!
-                            if ((enemy.onshot && config->aimbot[weaponIndex].onshot) || enemy.lbyUpdated) { /* If it's an onshot or lbyUpdated Tick, we set override*/
+                            if ((c_record->onshot && config->aimbot[weaponIndex].onshot) || (c_record->lbyUpdated && config->aimbot[weaponIndex].ShootForLBY)) { /* If it's an onshot or lbyUpdated Tick, we set override*/
+                                Debug::LogItem item2;
+                                item2.PrintToScreen = false;
+                                enemy.onshot = c_record->onshot;
+                                enemy.lbyUpdated = c_record->lbyUpdated;
+                                if (enemy.lbyUpdated && config->aimbot[weaponIndex].ShootForLBY) {
+                                    item2.text.push_back(std::wstring{ L"[Aimbot] Going for BT LBY Update for entity " + std::to_wstring(enemy.entity_ptr->index()) });
+                                }
+                                else if (enemy.onshot && config->aimbot[weaponIndex].onshot) {
+                                    item2.text.push_back(std::wstring{ L"[Aimbot] Going for BT Onshot for entity " + std::to_wstring(enemy.entity_ptr->index()) });
+                                }
+                                if (config->debug.backtrackCount) { Debug::LOG_OUT.push_front(item2); }
                                 Backtrack::SetOverride(enemy.entity_ptr, *c_record);
+
                             }
                             else {
                                 if (ImportantTick && config->aimbot[weaponIndex].prioritizeEventBT) {
@@ -922,16 +946,12 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                             }
                             enemy.bt = true;
                             c_record->btTargeted = true;
-                            enemy.onshot = c_record->onshot;
-                            c_record->onshot = false;
-                            enemy.lbyUpdated = c_record->lbyUpdated;
-                            c_record->lbyUpdated = false;
                             Animations::setup(enemy.entity_ptr, *c_record);
                             backup_rec = c_record;
+                            Backtrack::SetOverride(enemy.entity_ptr, *c_record);
                             break;
                         }
                         else {
-                            //Animations::finishSetup(enemy.entity_ptr);
                             continue;
                         }
 
@@ -1084,6 +1104,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
             you'll be able to process multiple sets of multipoints if the enemy is at say an angle where i.e. (dist to max, max, and min, min line up. With min,max being nearest)
 
             Currently checking if max,max and min, min are within a certain range of each other
+
         */
 
 
@@ -1120,7 +1141,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                 baimTriggered = true;
             }
             if (enemy.entity_ptr->velocity().length2D() < 10.0f) {
-                if ((record->missedshots > config->aimbot[weaponIndex].baimshots) && (!enemy.onshot)) {
+                if ((record->missedshotsthisinteraction > config->aimbot[weaponIndex].baimshots) && (!enemy.onshot)) {
                     baimTriggered = true;
                 }
                 else if ((enemy.health < config->aimbot[weaponIndex].minDamage) && (!enemy.onshot))
@@ -1214,6 +1235,17 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
             };
         }
 
+
+        if (config->aimbot[weaponIndex].PrioritizeHeadOnNoDesync && record->noDesync) {
+            Hitboxes = {
+                Multipoints::HITBOX_HEAD,
+                Multipoints::HITBOX_NECK,
+                Multipoints::HITBOX_ABDOMEN,
+                Multipoints::HITBOX_PELVIS,
+                Multipoints::HITBOX_STERNUM,
+            };
+        }
+
         if (Hitboxes.empty()) {
             continue;
         }
@@ -1269,62 +1301,73 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
             Debug::LOG_OUT.push_front(item3);
         }
 
-        // This code here will sort these points based on the players velocity, and what portion of the body is expected to peak first
-        Vector Velocity = enemy.entity_ptr->getVelocity();
+        if (config->aimbot[weaponIndex].veloPointSort) {
+            // This code here will sort these points based on the players velocity, and what portion of the body is expected to peak first
+            Vector Velocity = enemy.entity_ptr->getVelocity();
 
-        if ((Velocity.length2D() > 30.01f) && (Points.size() > 1)) {
-            bool axis = ((abs(Velocity.y) - abs(Velocity.x)) > 0) ? 1 : 0; // True for Y Axis, False for X Axis
+            if ((Velocity.length2D() > 30.01f) && (Points.size() > 1)) {
+                bool axis = ((abs(Velocity.y) - abs(Velocity.x)) > 0) ? 1 : 0; // True for Y Axis, False for X Axis
 
-            int side = axis ? (Velocity.y > 1) : (Velocity.x > 1); // 1 for Pos, 0 for neg
-            side = side ? 1 : -1; // Shit if 0 to -1
+                int side = axis ? (Velocity.y > 1) : (Velocity.x > 1); // 1 for Pos, 0 for neg
+                side = side ? 1 : -1; // Shit if 0 to -1
 
 
-            /* Takes the Chest Hitbox*/
-            /* If you pass a point that is less than 0 or greater than 21, you'll crash. So dont do that*/
-            struct point_sort {
-            private:
-                bool axis;
-                int side;
-                std::array<Vector, Multipoints::MULTIPOINTS_MAX>Box;
-            public:
-                point_sort(bool ax, int si, std::array<Vector, Multipoints::MULTIPOINTS_MAX>Vec) {
-                    this->axis = ax;
-                    this->side = si;
-                    std::array<Vector, Multipoints::MULTIPOINTS_MAX> Box = Vec;
-                    this->Box = Box;
-                }
-                bool operator() (int A, int B) {
-                    float a = side ? Box[A].y : Box[A].x; // Get the correct Axis
-                    float b = side ? Box[B].y : Box[B].x;
-                    if ((A == 0) && (B != 0)) // Sort middle of hitbox to always be first
-                        return true;
-                    if ((b * side) > (a * side)) // Get best point; 1000 > 50; but -50 > -1000
-                        return true;
-                    if ((b * side) < (a * side))
-                        return false;
-                    if ((b * side) == (a * side))
-                        if (Box[B].x > Box[A].x) // crappy fix for weak order sorting or whatever its called
+                /* Takes the Chest Hitbox*/
+                /* If you pass a point that is less than 0 or greater than 21, you'll crash. So dont do that*/
+                struct point_sort {
+                private:
+                    bool axis;
+                    int side;
+                    std::array<Vector, Multipoints::MULTIPOINTS_MAX>Box;
+                public:
+                    point_sort(bool ax, int si, std::array<Vector, Multipoints::MULTIPOINTS_MAX>Vec) {
+                        this->axis = ax;
+                        this->side = si;
+                        std::array<Vector, Multipoints::MULTIPOINTS_MAX> Box = Vec;
+                        this->Box = Box;
+                    }
+                    bool operator() (int A, int B) {
+                        float a = side ? Box[A].y : Box[A].x; // Get the correct Axis
+                        float b = side ? Box[B].y : Box[B].x;
+                        if ((A == 0) && (B != 0)) // Sort middle of hitbox to always be first
                             return true;
-                    return false;
-                }
-            };
-            std::array<Vector, Multipoints::MULTIPOINTS_MAX> PointArray;
-            std::copy(std::begin(bonePointsMulti[Multipoints::HITBOX_STERNUM]), std::end(bonePointsMulti[Multipoints::HITBOX_STERNUM]), std::begin(PointArray));
-            std::sort(Points.begin(), Points.end(), point_sort(axis, side, PointArray));
-        }
-        if (config->debug.aimbotcoutdebug) {
-            Debug::LogItem item4;
-            item4.PrintToScreen = false;
-            item4.text.push_back(std::wstring{ L"Made it Past Velo Point Sort for entity " + std::to_wstring(enemy.entity_ptr->index()) });
-            Debug::LOG_OUT.push_front(item4);
-        }
+                        if ((B == 0) && (A != 0))
+                            return false;
 
+                        if ((b * side) > (a * side)) // Get best point; 1000 > 50; but -50 > -1000
+                            return true;
+                        if ((b * side) < (a * side))
+                            return false;
+
+                        return (A > B);
+                    }
+                };
+                std::array<Vector, Multipoints::MULTIPOINTS_MAX> PointArray;
+                std::copy(std::begin(bonePointsMulti[Multipoints::HITBOX_STERNUM]), std::end(bonePointsMulti[Multipoints::HITBOX_STERNUM]), std::begin(PointArray));
+                std::sort(Points.begin(), Points.end(), point_sort(axis, side, PointArray));
+            }
+            if (config->debug.aimbotcoutdebug) {
+                Debug::LogItem item4;
+                item4.PrintToScreen = false;
+                item4.text.push_back(std::wstring{ L"Made it Past Velo Point Sort for entity " + std::to_wstring(enemy.entity_ptr->index()) });
+                Debug::LOG_OUT.push_front(item4);
+            }
+        }
 
         bestDamage = -1.0f;
         bool killFound = false;
         bool visFound = false;
         bool breakLoop = false;
         int totalPointsScanned = 0;
+
+        float minDamage = config->aimbot[weaponIndex].minDamage;
+        if (enemy.isVisible) {
+            minDamage = config->aimbot[weaponIndex].minDamageVis;
+        }
+
+        if (minDamage > enemy.health + 5) {
+            minDamage = enemy.health + 5;
+        }
 
 
         for (int l = 0; l <= 1; l++) { /* For Velo Point Sort*/
@@ -1336,7 +1379,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                 Points_Sp = { Points.at(0 + (l * 2)) , Points.at(1 + (l * 2)) }; // This is a shit solution, need to rewrite
             }
 
-            for (int i = 0; i < Hitboxes.size(); i++) { /*Iterate hitboxes*/
+            for (int i = 0; i < Hitboxes.size(); i++) { /*  Iterate hitboxes */
 
                 auto hitbox = Hitboxes[i];
 
@@ -1359,7 +1402,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                             Debug::LOG_OUT.push_front(item);
                         }
 
-                        if ((damage > config->aimbot[weaponIndex].minDamage)) {
+                        if ((damage > minDamage)) {
 
                             if (config->aimbot[weaponIndex].ensureHC) {
                                 const auto aimPunch = activeWeapon->requiresRecoilControl() ? localPlayer->getAimPunch() : Vector{ };
@@ -1379,6 +1422,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                                 bestDamage = damage;
                                 BestPoint = vPoint;
                                 Target = enemy.entity_ptr;
+                                hitbox_save = hitbox;
                                 if ((config->aimbot[weaponIndex].bone == 0) || localPlayer->canSeePoint(vPoint)) {
                                     breakLoop = true;
                                     if (config->debug.aimbotcoutdebug) { Debug::LogItem item3; item3.PrintToScreen = false; item3.text.push_back(std::wstring{ L"[1384] Breaking Loop " + std::to_wstring(enemy.entity_ptr->index()) }); Debug::LOG_OUT.push_front(item3); }
@@ -1402,6 +1446,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                                      bestDamage = damage;
                                      BestPoint = vPoint;
                                      Target = enemy.entity_ptr;
+                                     hitbox_save = hitbox;
                                      if ((config->aimbot[weaponIndex].bone == 0) || localPlayer->canSeePoint(vPoint)) {
                                          if (config->debug.aimbotcoutdebug) { Debug::LogItem item3; item3.PrintToScreen = false; item3.text.push_back(std::wstring{ L"[1406] Breaking Loop " + std::to_wstring(enemy.entity_ptr->index()) }); Debug::LOG_OUT.push_front(item3); }
                                          breakLoop = true;
@@ -1510,19 +1555,26 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
             //Vector Angle = Math::CalcAngle(localPlayer->getEyePosition(), BestPoint);
             static float MinimumVelocity = 0.0f;
             MinimumVelocity = localPlayer->getActiveWeapon()->getWeaponData()->maxSpeedAlt * 0.34f;
-            const auto aimPunch = activeWeapon->requiresRecoilControl() ? localPlayer->getAimPunch() : Vector{ };
-            auto angle = calculateRelativeAngle(localPlayer->getEyePosition(), BestPoint, cmd->viewangles + aimPunch);
+            const auto aimPunch = activeWeapon->requiresRecoilControl() ? /*localPlayer->getAimPunch()*/ (localPlayer->aimPunchAngle() * interfaces->cvar->findVar("weapon_recoil_scale")->getFloat())  : Vector{ };
+
+
+            Vector ViewAng = cmd->viewangles;
+            if (config->aimbot[weaponIndex].considerRecoilInHC) {
+                ViewAng += aimPunch;
+            }
+            auto angle = calculateRelativeAngle(localPlayer->getEyePosition(), BestPoint, ViewAng);
             //angle -= (localPlayer->aimPunchAngle() * interfaces->cvar->findVar("weapon_recoil_scale")->getFloat());
             //angle /= config->aimbot[weaponIndex].smooth;
 
             bool clamped{ false };
 
+            /*
             if (fabs(angle.x) > config->misc.maxAngleDelta || fabs(angle.y) > config->misc.maxAngleDelta) {
                 angle.x = std::clamp(angle.x, -config->misc.maxAngleDelta, config->misc.maxAngleDelta);
                 angle.y = std::clamp(angle.y, -config->misc.maxAngleDelta, config->misc.maxAngleDelta);
                 clamped = true;
             }
-
+            */
             if (localPlayer->velocity().length() >= MinimumVelocity && config->aimbot[weaponIndex].autoStop && (localPlayer->flags() & PlayerFlags::ONGROUND) && localPlayer->isScoped()) {
                 Autostop(cmd); //Auto Stop
             }
@@ -1542,8 +1594,13 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
 
             if ((((hitchance > 0.0f) || config->aimbot[weaponIndex].ensureHC)) && (activeWeapon->nextPrimaryAttack() <= memory->globalVars->serverTime()))
             {
+                if (!config->aimbot[weaponIndex].considerRecoilInHC) {
+                    auto angle = calculateRelativeAngle(localPlayer->getEyePosition(), BestPoint, cmd->viewangles + aimPunch);
+                }
                 cmd->viewangles += angle; //Set Angles
-
+                if (config->aimbot[weaponIndex].smooth > 1) {
+                    angle /= config->aimbot[weaponIndex].smooth;
+                }
                 if (!config->aimbot[weaponIndex].silent) {
                     interfaces->engine->setViewAngles(cmd->viewangles);
                 }
@@ -1551,7 +1608,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
 
                 if (config->aimbot[weaponIndex].autoShot) {
                     cmd->buttons |= UserCmd::IN_ATTACK; //shoot
-
+                    record->totalshots++;
                     if (!record->invalid) {
                         record->FiredUpon = true;
                         record->wasTargeted = true;
@@ -1565,6 +1622,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
                     shotdata.EyePosition = localPlayer->getEyePosition();
                     shotdata.viewangles = cmd->viewangles;
                     shotdata.TargetedPosition = BestPoint;
+                    shotdata.hitbox = hitbox_save;
 
                     if (Save.bt && backup_rec && !Backtrack::valid(backup_rec->simulationTime)) {
                         memcpy(shotdata.matrix, backup_rec->matrix, sizeof(matrix3x4) * std::clamp(backup_rec->countBones, 0, 256));
@@ -1604,283 +1662,3 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
 
     
 }
-    /*
-        if ((Target != interfaces->entityList->getEntity(localPlayer->index())) && Target->isAlive() && (activeWeapon->nextPrimaryAttack() <= memory->globalVars->serverTime())) //if has taget
-        {
-            int bestDmg = 0;
-            int bestChance = 0;
-            Vector bestAngle = { 0, 0, 0 };
-            Vector bestModifiedAngle{ 0, 0, 0 };
-
-            float MinimumVelocity = localPlayer->getActiveWeapon()->getWeaponData()->maxSpeedAlt * 0.34f;
-
-            if ((localPlayer->getVelocity().length() >= MinimumVelocity) && config->aimbot[weaponIndex].autoStop && (localPlayer->flags() & PlayerFlags::ONGROUND))
-            {
-                Autostop(cmd);
-            }
-
-            if (activeWeapon->isSniperRifle() && !localPlayer->isScoped())
-            {
-                cmd->buttons |= UserCmd::IN_ATTACK2;
-            }
-            VectorAndDamage Point;
-            Point.vec = BestPoint;
-            Point.damage = bestDamage;
-            AimPoints = { Point };
-            for (auto const& aimPoint : AimPoints) {
-                int raysHit = 0;
-                Vector Angle = Math::CalcAngle(localPlayer->getEyePosition(), aimPoint.vec);
-
-                //No recoil
-                Angle -= (localPlayer->aimPunchAngle() * interfaces->cvar->findVar("weapon_recoil_scale")->getFloat());
-                Vector bestVector{ Angle.x, Angle.y, Angle.z };
-
-                if (HitChance(Angle, Target, activeWeapon, weaponIndex, cmd, config->aimbot[weaponIndex].hitChance, bestHitchance, firstWallToPen, raysHit, bestVector)) // || HitChance(Angle, Target, activeWeapon, weaponIndex, cmd, config->ragebot[weaponIndex].hitChance, bestHitchance, firstWallToPen, raysHit, bestVector)
-                {
-                    if (aimPoint.damage > bestDmg)
-                    {
-                        bestDmg = aimPoint.damage;
-                        bestChance = bestHitchance;
-                        bestAngle = Angle;
-                        bestModifiedAngle = bestVector;
-                    }
-                }
-            }
-
-
-            if ((bestDmg > 0) && (config->aimbot[weaponIndex].autoShot || cmd->buttons & UserCmd::IN_ATTACK))
-            {
-                cmd->viewangles = bestAngle;//bestModifiedAngle;
-
-                if (!config->aimbot[weaponIndex].silent)
-                {
-                    interfaces->engine->setViewAngles(cmd->viewangles);
-                }
-
-                cmd->buttons |= UserCmd::IN_ATTACK; //shoot
-
-                if (config->debug.animstatedebug.resolver.enabled && !(record->invalid)) {
-                    record->FiredUpon = true;
-                }
-            }
-            */
-        
-
-
-
-        /*
-        if (Target != nullptr) {
-            if (Target == localPlayer.get())
-                return;
-
-            Vector Angle = Math::CalcAngle(localPlayer->getEyePosition(), BestPoint);
-            static float MinimumVelocity = 0.0f;
-            MinimumVelocity = localPlayer->getActiveWeapon()->getWeaponData()->maxSpeedAlt * 0.34f;
-
-
-
-            if (localPlayer->velocity().length() >= MinimumVelocity && config->aimbot[weaponIndex].autoStop && (localPlayer->flags() & PlayerFlags::ONGROUND))
-                Autostop(cmd); //Auto Stop
-
-            if (activeWeapon->nextPrimaryAttack() <= memory->globalVars->serverTime() && activeWeapon->isSniperRifle() && !localPlayer->isScoped())
-            {
-                cmd->buttons |= UserCmd::IN_ATTACK2; //Auto Scope
-            }
-
-            Angle -= (localPlayer->aimPunchAngle() * interfaces->cvar->findVar("weapon_recoil_scale")->getFloat());
-            bool hitchance = true;
-
-            if (config->aimbot[weaponIndex].hitChance != 0.0f) {
-                hitchance = HitChance(Angle, Target, activeWeapon, weaponIndex, cmd, (const int)config->aimbot[weaponIndex].hitChance);
-            }
-            else {
-                hitchance = (config->aimbot[weaponIndex].maxAimInaccuracy >= activeWeapon->getInaccuracy());
-            }
-
-            if ( hitchance && activeWeapon->nextPrimaryAttack() <= memory->globalVars->serverTime())
-            {
-                cmd->viewangles = Angle; //Set Angles
-
-                if (!config->aimbot[weaponIndex].silent)
-                    interfaces->engine->setViewAngles(cmd->viewangles);
-
-                cmd->buttons |= UserCmd::IN_ATTACK; //shoot
-
-                if (config->debug.animstatedebug.resolver.enabled && !(record->invalid)) {
-                    record->FiredUpon = true;
-                }
-            }
-
-
-
-
-        }
-        */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-                //std::ofstream myfile;
-                //myfile.open("C:\\Users\\userWIN\\source\\repos\\test\\Debug\\aimbotlog.txt", std::ios_base::app);
-
-                // myfile << "Get Model Function called\n";
-
-const auto model = entity->getModel();
-if (!model) {
-    //myfile << "Get Model returned null model, exiting\n";
-    return;
-}
-//myfile << "Calling getStudioModel\n";
-const auto studioModel = interfaces->modelInfo->getStudioModel(model);
-if (!studioModel) {
-    //myfile << "getStudioModel retyrbed null model\n";
-    return;
-}
-
-// StudioHitboxSet* getHitboxSet(int i)
-// myfile << "Calling getHitboxSet\n";
-const auto studiohitboxset = studioModel->getHitboxSet(0);
-if (!studiohitboxset) {
-    // myfile << "getHitboxSet returned null \n";
-    return;
-}
-
-//if (!(matrix3x4 boneMatrices[256]; entity->setupBones(boneMatrices, 256, 256, 0.0f)))
-//   return;
-
-// Multipoint StudioHitBoxCode 
-float maxDamage = 0;
-float damage = 0;
-
-for (auto bone : boneList) {
-
-    //myfile << "bone = " << bone << "\n";
-    auto studiobone = studiohitboxset->getHitbox(config->aimbot[weaponIndex].bone > 1 ? 10 - config->aimbot[weaponIndex].bone : bone);
-
-    if (!studiobone) {
-        //myfile << "No Studiobone returned from getHitBox\n";
-        return;
-    }
-
-    //myfile << "studiobone->bone gives " << studiobone->bone;
-
-
-    matrix3x4 boneMatrices[256];
-    entity->setupBones(boneMatrices, 256, 256, 0.0f);
-
-    auto basebonePosition = entity->getBonePosition(studiobone->bone);
-
-    //myfile << "\nbasebonePosition = " << basebonePosition.x << " " << basebonePosition.y << " " << basebonePosition.z;
-
-
-
-   // myfile << "\nstudio->bbMin " << studiobone->bbMin.x << " " << studiobone->bbMin.y <<  " " << studiobone->bbMin.z;
-    //myfile << "\nstudio->bbMax " << studiobone->bbMax.x << " " << studiobone->bbMax.y << " " << studiobone->bbMax.z;
-
-    Vector bbmin = studiobone->bbMin * config->aimbot[weaponIndex].multidistance;
-    Vector bbmax = studiobone->bbMax * config->aimbot[weaponIndex].multidistance;
-
-    Vector points[] = { Vector{bbmin.x, bbmin.y, bbmin.z},
-         Vector{bbmin.x, bbmax.y, bbmin.z},
-         Vector{bbmax.x, bbmax.y, bbmin.z},
-         Vector{bbmax.x, bbmin.y, bbmin.z},
-         Vector{bbmax.x, bbmax.y, bbmax.z},
-         Vector{bbmin.x, bbmax.y, bbmax.z},
-         Vector{bbmin.x, bbmin.y, bbmax.z},
-         Vector{bbmax.x, bbmin.y, bbmax.z},
-    };
-
-    //auto bonePosition = entity->getBonePosition(config->aimbot[weaponIndex].bone > 1 ? 10 - config->aimbot[weaponIndex].bone : bone);
-    Vector bonePositions[8];
-    bonePositions[0] = basebonePosition;
-    int i = 1;
-    for (auto point : points) {
-        bonePositions[i] = point.transform(boneMatrices[bone]);
-        //myfile << "bonePosition: " << i << " is " << bonePositions[i].x << " " << bonePositions[i].y << " " << bonePositions->z << "\n";
-        i++;
-    }
-
-    //Vector bonePositions[] = { (basebonePosition - (studiobone->bbMin * config->aimbot[weaponIndex].multidistance)), basebonePosition, (basebonePosition + (studiobone->bbMax * config->aimbot[weaponIndex].multidistance)) };
-
-
-
-
-
-    for (auto bonePosition : bonePositions) {
-
-        // myfile << "\nCurrent Bone Position in multipoint is: " << bonePosition.x << " " << bonePosition.y << " " << bonePosition.z << "\n";
-        if (!entity->isVisible(bonePosition) && (config->aimbot[weaponIndex].visibleOnly || !canScan(entity, bonePosition, activeWeapon->getWeaponData(), config->aimbot[weaponIndex].killshot ? entity->health() : config->aimbot[weaponIndex].minDamage, config->aimbot[weaponIndex].friendlyFire, damage)))
-            continue;
-
-        auto angle = calculateRelativeAngle(localPlayerEyePosition, bonePosition, cmd->viewangles + aimPunch);
-        auto fov = std::hypotf(angle.x, angle.y);
-        if (fov < bestFov) {
-            bestFov = fov;
-            if ((damage > maxDamage)) {
-                bestTarget = bonePosition;
-                maxDamage = damage;
-
-            }
-
-            if ((damage > 100.0f) || (damage > entity->health())) {
-                bestTarget = bonePosition;
-                maxDamage = damage;
-                break;
-            }
-
-        }
-        // myfile << "Curr Damage is: " << damage << " best damage is: " << maxDamage << "\n";
-
-
-    }
-
-    //myfile << "Best target is " << bestTarget.x << " " << bestTarget.y << " " << bestTarget.z << "\n";
-   // myfile.close();
-    if (config->aimbot[weaponIndex].bone || (damage > 100.0f) || (damage > entity->health()))
-        break;
-
-    */
-
-        /*
-    for (float i = config->aimbot[weaponIndex].multidistance; i < 3; i += config->aimbot[weaponIndex].multidistance) {
-
-
-        if (!entity->isVisible(bonePosition) && (config->aimbot[weaponIndex].visibleOnly || !canScan(entity, bonePosition, activeWeapon->getWeaponData(), config->aimbot[weaponIndex].killshot ? entity->health() : config->aimbot[weaponIndex].minDamage, config->aimbot[weaponIndex].friendlyFire, damage)))
-            continue;
-
-        auto angle = calculateRelativeAngle(localPlayerEyePosition, bonePosition, cmd->viewangles + aimPunch);
-        auto fov = std::hypotf(angle.x, angle.y);
-        if (fov < bestFov) {
-            bestFov = fov;
-            if (damage > maxDamage) {
-                bestTarget = bonePosition;
-                maxDamage = damage;
-            }
-        }
-        if (config->aimbot[weaponIndex].bone)
-            break;
-        Vector adder;
-        adder.x = i;
-        adder.y = 0.0f;
-        adder.z = 0.0f;
-        bonePosition += adder;
-    }
-    */

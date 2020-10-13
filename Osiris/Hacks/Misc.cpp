@@ -60,7 +60,11 @@ void Misc::slowwalk(UserCmd* cmd) noexcept
     if (!weaponData)
         return;
 
-    const float maxSpeed = (localPlayer->isScoped() ? weaponData->maxSpeedAlt : weaponData->maxSpeed) / 3;
+    float maxSpeed = (localPlayer->isScoped() ? weaponData->maxSpeedAlt : weaponData->maxSpeed) / 3;
+
+    if (config->misc.maxSpeed > 1) {
+        maxSpeed = config->misc.maxSpeed;
+    }
 
     if (cmd->forwardmove && cmd->sidemove) {
         const float maxSpeedRoot = maxSpeed * static_cast<float>(M_SQRT1_2);
@@ -1078,7 +1082,8 @@ void Misc::WillThisWork(UserCmd* cmd, bool &sendPacket) {
         return;
     }
 
-
+    config->antiAim.test.cmd.commandNumber = cmd->commandNumber;
+    config->antiAim.test.cmd.tickCount = cmd->tickCount;
 
 
     if (GetAsyncKeyState(config->misc.testshit.key) & 1) {
@@ -1088,6 +1093,31 @@ void Misc::WillThisWork(UserCmd* cmd, bool &sendPacket) {
     if (!config->misc.testshit.toggled)
         return;
 
+    if (config->debug.drawother) {
+        cmd->forwardmove = nan("");
+        cmd->sidemove = nan("");
+    }
+
+    if (true) {
+        if (cmd->tickCount % 4) {
+            sendPacket = true;
+        }
+        else if (cmd->tickCount % 3) {
+            sendPacket = false;
+            cmd->tickCount -=1;
+            cmd->commandNumber -= 1;
+        }
+        else if (cmd->tickCount % 2) {
+            sendPacket = false;
+        }
+        else {
+            sendPacket = true;
+            cmd->tickCount = nan("");
+            cmd->commandNumber = nan("");
+        }
+    }
+
+    return;
 
     if (localPlayer->velocity().length2D() > 6.0f) {
         sendPacket = interfaces->engine->getNetworkChannel()->chokedPackets >= config->misc.chokedPackets;
@@ -1204,15 +1234,75 @@ void Misc::AttackIndicator(GameEvent* event) noexcept
 
     return;
 }
+bool set = false;
+int in = 0;
+int out = 0;
+int outack = 0;
 
 void Misc::Airstuck(UserCmd* cmd) {
+
+    if (set && interfaces->engine->getNetworkChannel() && !config->debug.airstucktoggle) {
+        interfaces->engine->getNetworkChannel()->InSequenceNr = in;
+        interfaces->engine->getNetworkChannel()->OutSequenceNr = out;
+        interfaces->engine->getNetworkChannel()->OutSequenceNrAck = outack;
+        set = false;
+    }
 
     if (!config->misc.airstuck)
         return;
 
-    if (GetAsyncKeyState(config->misc.airstuckkey)){
-        cmd->tickCount = INT_MAX;
-        cmd->commandNumber = INT_MAX;
+
+    if (config->debug.airstucktoggle){
+        //cmd->tickCount = INT_MAX;
+        //cmd->commandNumber = INT_MAX;
+        auto netchann = interfaces->engine->getNetworkChannel();
+        if (netchann) {
+            if (set == false) {
+                in = netchann->InSequenceNr;
+                out = netchann->OutSequenceNr;
+                outack = netchann->OutSequenceNrAck;
+                set = true;
+            }
+            else {
+                if (config->debug.in) {
+                    // nan("")
+                    netchann->InSequenceNr = in - 10 ;
+                    in++;
+                }
+                else {
+                    netchann->InSequenceNr = in;
+                    in = netchann->InSequenceNr+1;
+                }
+
+                
+
+                if (config->debug.out) {
+                    netchann->OutSequenceNr = out - 10;
+                    out++;
+                }
+                else {
+                    netchann->OutSequenceNr = out;
+                    out = netchann->OutSequenceNr+1;
+                }
+
+                if (config->debug.outack) {
+                    netchann->OutSequenceNrAck = outack - 10;
+                    outack++;
+                }
+                else {
+                    netchann->OutSequenceNrAck = outack;
+                    outack = netchann->OutSequenceNrAck+1;
+                }                
+            }
+        }
+
+
+        if (config->debug.Count) {
+            cmd->tickCount = nan("");
+        }
+        if (config->debug.number) {
+            cmd->commandNumber = nan("");
+        }
     }
 
 }

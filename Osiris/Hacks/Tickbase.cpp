@@ -73,7 +73,7 @@ void Tickbase::shiftTicks(int ticks, UserCmd* cmd, bool shiftAnyways) noexcept /
 
 void Tickbase::run(UserCmd* cmd) noexcept
 {
-    if (!config->misc.dt.enabled)
+    if (!config->misc.dt.enabled && !config->misc.hideshots)
         return;
 
     if (!localPlayer || !localPlayer->isAlive() || localPlayer->isDormant() || (interfaces->engine->getNetworkChannel()->chokedPackets > 16) || ((localPlayer->getVelocity().length2D() > config->misc.fakelagspeed)) || config->misc.testshit.enabled)
@@ -99,31 +99,54 @@ void Tickbase::run(UserCmd* cmd) noexcept
 
     auto ticks = 0;
 
-    switch (config->misc.dt.doubletapspeed - 1) {
-    case 0: //Instant
-        ticks = 16;
-        break;
-    case 1:
-        ticks = 15;
-        break;
-    case 2: //Fast
-        ticks = 14;
-        break;
-    case 3: //Accurate
-        ticks = 13;
-        break;
-    case 4: //Accurate
-        ticks = 12;
-        break;
+    if (config->misc.hideshots) {
+        ticks = 7;
+    }
+
+    if (config->misc.dt.enabled) {
+        switch (config->misc.dt.doubletapspeed - 1) {
+        case 0: //Instant
+            ticks = 16;
+            break;
+        case 1:
+            ticks = 15;
+            break;
+        case 2: //Fast
+            ticks = 14;
+            break;
+        case 3: //Accurate
+            ticks = 13;
+            break;
+        case 4: //Accurate
+            ticks = 12;
+            break;
+        case 5:
+            ticks = 11;
+            break;
+        case 6:
+            ticks = 10;
+            break;
+        case 7:
+            ticks = 9;
+            break;
+        case 8:
+            ticks = 8;
+            break;
+        case 9:
+            ticks = 7;
+            break;
+        }
     }
 
     if ((cmd->buttons & UserCmd::IN_ATTACK) && ((config->misc.dt.enabled && GetAsyncKeyState(config->misc.dt.dtKey)) || (config->misc.dt.enabled && (config->misc.dt.dtKey == 0)))) { 
+        bool shiftanyways = config->misc.hideshots ? true : false;
         shiftTicks(ticks, cmd); 
     }
     
 
-    if ((tick->tickshift <= 0) && (tick->ticksAllowedForProcessing < (tick->maxUsercmdProcessticks - interfaces->engine->getNetworkChannel()->chokedPackets)) || ((interfaces->engine->getNetworkChannel()->chokedPackets <= (tick->maxUsercmdProcessticks - ticks))) && !config->misc.testshit.toggled && !cmd->buttons & UserCmd::IN_ATTACK)/*&& !config->antiAim.fakeDucking*/ /*&& ((interfaces->engine->getNetworkChannel()->chokedPackets <= (tick->maxUsercmdProcessticks - ticks)) || !config->misc.testshit.toggled) */
+    if ((tick->tickshift <= 0) && ((interfaces->engine->getNetworkChannel()->chokedPackets <= (tick->maxUsercmdProcessticks - ticks))) && !config->misc.testshit.toggled && !(cmd->buttons & UserCmd::IN_ATTACK))/*&& !config->antiAim.fakeDucking*/ /*&& ((interfaces->engine->getNetworkChannel()->chokedPackets <= (tick->maxUsercmdProcessticks - ticks)) || !config->misc.testshit.toggled) */
     {
+        // && (tick->ticksAllowedForProcessing > (tick->maxUsercmdProcessticks - interfaces->engine->getNetworkChannel()->chokedPackets)) 
         //newCmd.dtPrevTick = false;
         if (cmd->tickCount != INT_MAX) {
             cmd->tickCount = INT_MAX; //recharge

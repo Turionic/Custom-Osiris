@@ -9,13 +9,9 @@ namespace nav_mesh {
 	void nav_buffer::load_from_file( std::string_view nav_mesh_file ) {
 		clear( );
 		
-		std::ifstream nav_file( nav_mesh_file.data( ), std::istream::binary );
+		std::ifstream nav_file( nav_mesh_file.data( ), std::ifstream::binary );
 
 		if (!nav_file.is_open()) {
-			//char *returnvar = (char*)malloc(sizeof(char)*100);
-			//std::sprintf(returnvar, "Unable to open Nav File: %s", ((std::string)nav_mesh_file).c_str());
-			//auto thing = returnvar;
-			//free(returnvar);
 			throw std::exception("Unable to open Nav File");
 		}
 		nav_file.unsetf( std::istream::skipws );

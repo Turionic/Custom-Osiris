@@ -500,7 +500,7 @@ static int customDrawLine(StreamProofESP::DrawItem Object) {
 
 void StreamProofESP::DrawESPItemList() noexcept
 {
-    if (!localPlayer || !localPlayer->isAlive() || localPlayer->isDormant())
+    if (!localPlayer || !localPlayer->isAlive() || localPlayer->isDormant() || config->misc.airstuck)
         return;
 
     if (ESPItemList.empty())
@@ -886,7 +886,7 @@ static void renderPlayerBox(const PlayerData& playerData, const Player& Pconfig)
 
     
     if (Pconfig.drawMultiPoints) {
-            static Vector multiPoints[Multipoints::HITBOX_MAX][Multipoints::MULTIPOINTS_MAX];
+            
 
             auto activeWeapon = localPlayer->getActiveWeapon();
             if (!activeWeapon)
@@ -895,28 +895,26 @@ static void renderPlayerBox(const PlayerData& playerData, const Player& Pconfig)
             if (!weaponIndex) // no weapon index? then exit
                 return;
 
-            if (Multipoints::retrieveAll(interfaces->entityList->getEntity(playerData.entityindx), config->aimbot[weaponIndex].multidistance , Resolver::PlayerRecords[playerData.entityindx].multiExpan, multiPoints)) {
-
-                for (int hitBox = Multipoints::HITBOX_START; hitBox < Multipoints::HITBOX_MAX; hitBox++) {
-                    for (int multiPoint = Multipoints::MULTIPOINTS_START; multiPoint < Multipoints::MULTIPOINTS_MAX; multiPoint++) {
+            Multipoints::Multipoint Boxes;
+            Multipoints::PointScales scale;
+            if (Multipoints::retrieveAll(interfaces->entityList->getEntity(playerData.entityindx), config->aimbot[weaponIndex].multidistance, scale, Boxes)) {
+                for (Multipoints::HitboxPoints hitbox : Boxes) {
+                    for (Vector Point : hitbox.Points) {
                         ImVec2 points;
-
-                        if (worldToScreen(multiPoints[hitBox][multiPoint], points)) {
+                        if (worldToScreen(Point, points)) {
                             int color = Helpers::calculateColor(Pconfig.flashDuration);
                             const auto radius = std::max(5.0f - playerData.distanceToLocal / 600.0f, 1.0f);
                             drawList->AddCircleFilled(points, radius, color & IM_COL32_A_MASK);
                         }
-                        if (!config->aimbot[weaponIndex].multiincrease) {
-                            if (multiPoint > 12)
-                                break;
-                        }
-                            //interfaces->surface->drawOutlinedCircle(points.x, points.y, 1, 8);
                     }
+
+
                 }
+
             }
         }
         
-    }
+}
 
 
 
@@ -1075,6 +1073,13 @@ static void renderProjectileEsp(const ProjectileData& projectileData, const Proj
 
 void StreamProofESP::render() noexcept
 {
+
+    if (config->debug.airstucktoggle)
+        return;
+
+    if (!localPlayer || localPlayer->isDormant() || !localPlayer->isAlive())
+        return;
+
     drawList = ImGui::GetBackgroundDrawList();
 
     GameData::Lock lock;

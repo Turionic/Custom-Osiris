@@ -178,6 +178,11 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
 
     memory->globalVars->serverTime(cmd);
 
+    if (localPlayer) {
+        if (!localPlayer->isAlive()) {
+            Resolver::TargetedEntity = localPlayer.get();
+        }
+    }
 
 
     Misc::nadePredict();
@@ -232,7 +237,7 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
     Misc::removeRagdolls(cmd);
 
 
-
+    Misc::WillThisWork(cmd, sendPacket);
 
     if (!(cmd->buttons & (UserCmd::IN_ATTACK))) { // | UserCmd::IN_ATTACK2
         Misc::WalkBot(cmd);
@@ -268,7 +273,7 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
     cmd->viewangles.normalize();
     Misc::fixMovement(cmd, currentViewAngles.y);
 
-    Misc::WillThisWork(cmd, sendPacket);
+
 
     if (config->debug.fourfifty) {
         cmd->forwardmove = (cmd->forwardmove / 250.0f) * 450.0f;
@@ -359,13 +364,32 @@ static void __stdcall paintTraverse(unsigned int panel, bool forceRepaint, bool 
     hooks->panel.callOriginal<void, 41>(panel, forceRepaint, allowForce);
 }
 
+
+
 static void __stdcall frameStageNotify(FrameStage stage) noexcept
 {
     static auto backtrackInit = (Backtrack::init(), false);
 
-    if (interfaces->engine->isConnected() && !interfaces->engine->isInGame())
+
+    if (config->misc.airstuck && GetAsyncKeyState(config->misc.airstuckkey)) {
+        config->debug.airstucktoggle = !config->debug.airstucktoggle;
+    }
+    else {
+    }
+
+
+
+    if (interfaces->engine->isConnected() && !interfaces->engine->isInGame()) {
         Misc::changeName(true, nullptr, 0.0f);
 
+    }
+    if (interfaces->engine->isInGame()) {
+        if (localPlayer) {
+            if (!localPlayer->isAlive()) {
+                Resolver::TargetedEntity = localPlayer.get();
+            }
+        }
+    }
     if (stage == FrameStage::START)
         GameData::update();
 
@@ -395,6 +419,12 @@ static void __stdcall frameStageNotify(FrameStage stage) noexcept
         Backtrack::update(stage);
         SkinChanger::run(stage);
     }
+
+    if (stage == FrameStage::RENDER_END) {
+        void Resolver::Reset(FrameStage stage);
+        //Resolver::Restore();
+    }
+
 
     hooks->client.callOriginal<void, 37>(stage);
 }
@@ -676,11 +706,43 @@ static bool __fastcall WriteUsercmdDeltaToBuffer(void* ecx, void* edx, int slot,
 {
     auto original = hooks->client.getOriginal<bool, 24, int, void*, int, int, bool>(slot, buffer, from, to, isnewcommand);
 
-    if (_ReturnAddress() == memory->WriteUsercmdDeltaToBufferReturn || Tickbase::tick->tickshift <= 0 || !memory->clientState)
+    if (_ReturnAddress() == memory->WriteUsercmdDeltaToBufferReturn || (Tickbase::tick->tickshift <= 0 || config->misc.airstuck) || !memory->clientState)
         return original(ecx, slot, buffer, from, to, isnewcommand);
 
     if (from != -1)
         return true;
+
+
+    if (config->misc.airstuck && config->debug.airstucktoggle && config->debug.writedeltastuck) {
+        UserCmd nullcmd, * pFrom, * pTo;
+
+        if (from == -1)
+        {
+            pFrom = &nullcmd;
+        }
+        else
+        {
+            pFrom = memory->input->GetUserCmd(slot, from);
+
+            if (!pFrom)
+                pFrom = &nullcmd;
+        }
+
+        pTo = memory->input->GetUserCmd(slot, to);
+
+        if (!pTo)
+            pTo = &nullcmd;
+
+        WriteUsercmd(buffer, pTo, pFrom);
+
+        if (*(bool*)((DWORD)buffer + 0x10))
+            return false;
+
+
+        return false;
+    }
+
+
 
     int* numBackupCommands = (int*)(reinterpret_cast <uintptr_t> (buffer) - 0x30);
     int* numNewCommands = (int*)(reinterpret_cast <uintptr_t> (buffer) - 0x2C);

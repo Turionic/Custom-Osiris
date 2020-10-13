@@ -1,6 +1,6 @@
-﻿  Visuals.cpp
-C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Vector.h(145,38): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Vector.h(150,43): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+﻿  Tickbase.cpp
+C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Vector.h(158,38): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Vector.h(163,43): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
 C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(420,34): warning C4101: 'e': unreferenced local variable
 C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(433,57): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
 C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(435,1): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
@@ -24,4 +24,5 @@ C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(494,122): warnin
 C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(494,122): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
 C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(501,24): warning C4244: 'return': conversion from 'int' to 'float', possible loss of data
 C:\Users\userWIN\source\repos\Osiris-master\Osiris\SDK\Entity.h(503,26): warning C4244: '=': conversion from 'int' to 'float', possible loss of data
+  LINK : C:\Users\userWIN\source\repos\Osiris-master\Debug\Osiris.dll not found or not built by the last incremental link; performing full link
   Osiris.vcxproj -> C:\Users\userWIN\source\repos\Osiris-master\Debug\Osiris.dll

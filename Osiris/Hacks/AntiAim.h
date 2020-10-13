@@ -1,6 +1,7 @@
 #pragma once
 #include "../SDK/Vector.h"
 #include "../SDK/Entity.h"
+#include "../SDK/NetworkChannel.h"
 struct UserCmd;
 struct Vector;
 
@@ -20,6 +21,11 @@ namespace AntiAim {
         Vector real = { 0,0,0 };
         Vector fake = { 0,0,0 };
         Vector lby = { 0,0,0 };
+        float PreBreakAngle = 0.0f;
+        float PreBreakAngleFake = 0.0f;
+        bool netset = false;
+        NetworkChannel netchan;
+        int lastOutgoing = 0;
     };
 
     extern bool lbyNextUpdatedPrevtick;

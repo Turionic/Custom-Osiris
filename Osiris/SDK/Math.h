@@ -1,10 +1,10 @@
 #pragma once
 #include <cassert>
 
+
 #include "Vector.h"
 
 constexpr float M_PIF = static_cast<float>(M_PI);
-
 namespace Math {
 
 	inline Vector RotatePoint(Vector EntityPos, Vector LocalPlayerPos, float posX, float posY, float sizeX, float sizeY, float angle, float zoom, bool* viewCheck, bool angleInRadians = false) noexcept
@@ -77,6 +77,30 @@ namespace Math {
 
 		return qAngles;
 	}
+	inline void MatrixSetColumn(matrix3x4& mat, const Vector in, int column) {
+		mat[0][column] = in.x;
+		mat[1][column] = in.y;
+		mat[2][column] = in.z;
+	}
+
+	inline Vector VectorRotate(Vector in, const matrix3x4 in2)
+	{
+		Vector out;
+		out.x = in.dotProduct(in2[0]);
+		out.y = in.dotProduct(in2[1]);
+		out.z = in.dotProduct(in2[2]);
+		return out;
+	}
+
+
+	inline Vector VectorNormalize2(Vector vec) noexcept
+	{
+		Vector vec2;
+		vec2.x = std::isfinite(vec.x) ? std::remainder(vec.x, 360.0f) : 0.0f;
+		vec2.y = std::isfinite(vec.y) ? std::remainder(vec.y, 360.0f) : 0.0f;
+		vec2.z = 0.0f;
+		return vec2;
+	}
 
 	typedef float Vector_t;
 	inline Vector_t VectorNormalize(Vector& v)
@@ -95,7 +119,7 @@ namespace Math {
 		return l;
 	}
 
-	inline	void VectorAngles(const Vector& vecForward, Vector& vecAngles)
+	inline void VectorAngles(const Vector& vecForward, Vector& vecAngles)
 	{
 		Vector vecView;
 		if (vecForward.y == 0.f && vecForward.x == 0.f)
@@ -168,6 +192,18 @@ namespace Math {
 			up->y = cr * sp * sy + -sr * cy;
 			up->z = cr * cp;
 		}
+	}
+
+	inline matrix3x4 VectorMatrix(Vector vec, matrix3x4& mat) {
+		Vector right, up;
+		Vector forward = vec;
+
+		vec.VectorVectors(forward, right, up);
+		Math::MatrixSetColumn(mat, forward, 0);
+		Math::MatrixSetColumn(mat, -right, 1);
+		Math::MatrixSetColumn(mat, up, 2);
+
+		return mat;
 	}
 
 }

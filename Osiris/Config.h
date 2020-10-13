@@ -45,13 +45,21 @@ public:
         bool teamDamageOverlay{ false };
     } grief;
 
+
     struct debug {
         ColorToggle desync_info;
         ColorToggle animStateMon;
         ColorToggle box;
         ColorToggle CustomHUD;
+        ColorToggle DamageLog;
+        ColorToggle networkchannel;
+        ColorToggle clientstate;
+        ColorToggle globalvars;
+        ColorToggle ResolverOut;
         //out
         bool AnimExtras{ false };
+        bool backtrackCount{ false };
+        bool resolverDebug{ false };
         int overlay{ 13 };
         int entityid{ 0 };
         bool overlayall{ false };
@@ -61,6 +69,15 @@ public:
         bool forcesetupBones{ false };
         bool showshots{ false };
         bool aimbotcoutdebug{ false };
+        bool airstucktoggle{ false };
+
+        bool in{ false };
+        bool out{ false };
+        bool outack{ false };
+        bool Count{ true };
+        bool number{ true };
+        bool writedeltastuck{ false };
+
         //in
         struct {
             bool enabled{ false };
@@ -80,6 +97,7 @@ public:
                 int missed_shots{ 0 };
                 int missedoffset{ 0 };
                 bool goforkill{ false };
+                bool missedshotsreset{ false };
             }resolver;
 
             bool manual{ false };
@@ -100,7 +118,13 @@ public:
         float GoalFeetYaw{ 0.0f };
         float Pitch{ 0.0f };
         float Yaw{ 0.0f };
-        bool FPSBar{ false };
+
+        struct Graphs { /* Make Custom Color Class */
+            bool enabled{ true };
+            bool FPSBar{ true };
+            bool Ping{ true };
+            bool FakeLag{ false };
+        } graph;
         bool spoofconvar{ false };
         bool showlagcomp{ false };
         bool showimpacts{ false };
@@ -113,6 +137,7 @@ public:
         bool Animfix{ false };
         bool veloFix{ false };
         bool forceSendOnShot{ false };
+        float ABS{ 0.0f };
     } debug;
 
     struct Aimbot {
@@ -135,6 +160,7 @@ public:
         float maxAimInaccuracy{ 1.0f };
         float maxShotInaccuracy{ 1.0f };
         int minDamage{ 1 };
+        float minDamageVis{ 1.0f };
         bool killshot{ false };
         bool betweenShots{ true };
         bool multipointenabled{ false };
@@ -149,8 +175,11 @@ public:
         int baimkey{ 0 };
         int pointstoScan{ 200 };
         bool ensureHC{ false };
+        bool considerRecoilInHC{ false };
         bool multiincrease{ false };
         bool dynamicpoints{ false };
+        bool veloPointSort{ false };
+
         bool hitboxes[Multipoints::HITBOX_LAST_ENTRY] = {
             false,
             false,
@@ -171,10 +200,13 @@ public:
             false,
             false,
         };
+
         int baimshots{ 8 };
         bool onshot{ false };
         bool pelvisAimOnLBYUpdate{ false };
+        bool ShootForLBY{ false };
         bool prioritizeEventBT{ false };
+        bool PrioritizeHeadOnNoDesync{false};
 
     };
     std::array<Aimbot, 40> aimbot;
@@ -233,7 +265,19 @@ public:
         bool useAnimState{ false };
         bool airstuckonLBY{ false };
         bool disableLBYbreaking{ false };
+
+        struct test {
+            bool forceHide = false;
+            bool preserveCountOnLBY = false;
+            struct cout {
+                int tickCount = 0;
+                int commandNumber = 0;
+            } cmd;
+        } test;
+
         bool blah{ true };
+        bool suppress979{ false };
+        bool preBreak{ false };
         int v1{ 120 };
         int v2{ 0 };
         int v3{ -1 };
@@ -439,6 +483,11 @@ public:
     } style;
 
     struct Misc {
+
+
+        bool hideshots{ false };
+
+
         int menuKey{ 0x2D }; // VK_INSERT
         bool antiAfkKick{ false };
         bool autoStrafe{ false };
@@ -490,9 +539,9 @@ public:
         bool fixTabletSignal{ false };
         float maxAngleDelta{ 255.0f };
         bool fakePrime{ false };
-        int killSound{ 0 };
-        bool showall{ false };
-
+        int killSound{0};
+        bool showall{false};
+        int maxSpeed{0};
 
         struct {
             bool enabled = { false };

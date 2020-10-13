@@ -17,15 +17,14 @@ std::deque<Backtrack::IncomingSequence>Backtrack::sequences;
 Backtrack::Cvars Backtrack::cvars;
 
 bool Backtrack::ImportantTick(std::deque<Record> records) {
-    for (auto record : records) {
-        if (!valid(record.simulationTime))
+    for (Record record : records) {
+        if (!valid(record.simulationTime)) {
             continue;
-
+        }
         if (record.onshot || record.lbyUpdated) {
             return true;
         }
     }
-
     return false;
 }
 
@@ -79,13 +78,15 @@ void Backtrack::update(FrameStage stage) noexcept
                 Resolver::Record *r_record = &Resolver::PlayerRecords.at(entity->index());
                 if (r_record && !r_record->invalid) {
                     record.lbyUpdated = r_record->lbyUpdated;
+                    record.onshot = r_record->onshot;
                 }
             }
 
 
             //record.wasVisible = entity->isVisible();
-            auto AnimState = entity->getAnimstate();
+            //auto AnimState = entity->getAnimstate();
 
+            /*
             //float heighest_weight = 0.0f;
             if (AnimState) {
 
@@ -105,7 +106,7 @@ void Backtrack::update(FrameStage stage) noexcept
                     }
                 };
             }
-
+            */
 
             //record.prevhealth = entity->health();
 
@@ -182,13 +183,35 @@ void Backtrack::update(FrameStage stage) noexcept
 }
 
 
-
+#include "../Debug.h"
+#include <numeric>
+#include <sstream>
+#include <codecvt>
+#include <locale>
+#include <string>
+#include <iostream>
+#include <cstddef>
 void Backtrack::SetOverride(Entity* entity, Record record) noexcept {
-/* Sets Backtrack Override, will ignore backtrack calculation, and instead force the tick choosen to the one specified by the simtime
-in record
-entity = Entity ptr to target
-record = record choosen to override too
-*/
+    /* Sets Backtrack Override, will ignore backtrack calculation, and instead force the tick choosen to the one specified by the simtime
+    in record
+    entity = Entity ptr to target
+    record = record choosen to override too
+    */
+
+    Debug::LogItem item;
+    item.PrintToScreen = false;
+    item.text.push_back(std::wstring{ L"[Backtrack] Overriding Backtrick record to record taken at simtime " + std::to_wstring(record.simulationTime) });
+    if (record.lbyUpdated) {
+        item.text.push_back(std::wstring{ L"[Backtrack] Backtrack record Contains Updating LBY of player"});
+        record.lbyUpdated = false;
+    }
+    else if (record.onshot) {
+        item.text.push_back(std::wstring{ L"[Backtrack] Backtrack record Contains Onshot tick" });
+        record.onshot = false;
+    }
+    if (config->debug.backtrackCount) {
+        Debug::LOG_OUT.push_front(item);
+    }
     override.Set = true;
     override.entity = entity;
     override.record = record;
@@ -270,11 +293,12 @@ void Backtrack::run(UserCmd* cmd) noexcept
         }
     }
 
-    if (bestRecord || override.Set) {
+    if ((bestRecord || override.Set) && (cmd->buttons & UserCmd::IN_ATTACK)) {
         Record record;
 
         if (override.Set) {
             record = override.record;
+            bestTarget = override.entity;
         }
         else {
             record = records[bestTargetIndex][bestRecord];
@@ -299,6 +323,8 @@ void Backtrack::run(UserCmd* cmd) noexcept
 
         // Apply correct tick_count
         cmd->tickCount = timeToTicks((real_target_time + getLerp()));
+        record.onshot = false;
+        record.lbyUpdated = false;
     }
 }
 

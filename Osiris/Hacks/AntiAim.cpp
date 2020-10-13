@@ -85,7 +85,7 @@ bool AntiAim::LBY_UPDATE(Entity* entity = localPlayer.get(), int TicksToPredict 
 		Velocity = as_EntityAnimState->speed_2d;
 	}
 
-	lbyNextUpdatedPrevtick = lbyNextUpdated;
+	if (TicksToPredict == 0) { lbyNextUpdatedPrevtick = lbyNextUpdated; }
 	
 	if (Velocity > 0.1f) { //LBY updates on any velocity
 		if (TicksToPredict == 0) { LocalPlayerAA.lbyNextUpdate = 0.22f + servertime; lbyNextUpdated = true;}
@@ -329,7 +329,15 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 		LocalPlayerAA.real = cmd->viewangles;
 		
 
-
+		if (config->antiAim.micromove) {
+			if (!(config->antiAim.general.fakeWalk.enabled) && (localPlayer->getVelocity().length2D() < 1.016f)) {
+				cmd->forwardmove = 0;
+				if (cmd->buttons & UserCmd::IN_DUCK)
+					cmd->sidemove = cmd->tickCount % 2 ? 3.25f : -3.25f;
+				else
+					cmd->sidemove = cmd->tickCount % 2 ? 1.0f : 1.0f;
+			}
+		}
 
 
 
@@ -378,7 +386,7 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 
 
 
-			if ((interfaces->engine->getNetworkChannel()->chokedPackets < 8) && !(config->antiAim.general.fakeWalk.enabled && config->antiAim.general.fakeWalk.keyToggled)){ //&& !AntiAim::lbyNextUpdatedPrevtick
+			if ((interfaces->engine->getNetworkChannel()->chokedPackets < 8) && !(config->antiAim.general.fakeWalk.enabled && config->antiAim.general.fakeWalk.keyToggled) && !config->misc.testshit.toggled){ //&& !AntiAim::lbyNextUpdatedPrevtick
 				sendPacket = cmd->tickCount % 2 ? false : true;
 			}
 
@@ -431,21 +439,58 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 			}
 			*/
 
+			if (config->antiAim.suppress979 && AntiAim::lbyNextUpdatedPrevtick && LocalPlayerAA.netset) {
+				interfaces->engine->getNetworkChannel()->OutSequenceNr = LocalPlayerAA.netchan.OutSequenceNr;
+				memory->clientState->lastOutgoingCommand = LocalPlayerAA.lastOutgoing;
+				LocalPlayerAA.netset = false;
+			}
+
 
 			if (LBY_UPDATE(localPlayer.get()) && !config->antiAim.disableLBYbreaking) /*&& (localPlayer->velocity().length2D() < 2.0f)*/ {
 
 
 				cmd->viewangles.y = LocalPlayerAA.real.y + (config->antiAim.v1 * (side ? 1 : -1));
-				if (interfaces->engine->getNetworkChannel()->chokedPackets < 8) {
+				if (((interfaces->engine->getNetworkChannel()->chokedPackets < 8) && !config->misc.testshit.toggled) || config->antiAim.test.forceHide) {
 					sendPacket = false;
 				}
+
+				if (config->antiAim.test.preserveCountOnLBY) {
+					cmd->tickCount = config->antiAim.test.cmd.tickCount;
+					cmd->commandNumber = config->antiAim.test.cmd.commandNumber;
+				}
+
 				if (config->antiAim.airstuckonLBY) { /*I Wonder what this will do*/
 					cmd->tickCount = INT_MAX;
 					cmd->commandNumber = INT_MAX;
 				}
-			}
-			else {
 
+				/* 979 Suppression */
+				if (config->antiAim.suppress979) {
+
+					LocalPlayerAA.netchan.OutSequenceNr = interfaces->engine->getNetworkChannel()->OutSequenceNr+1;
+					LocalPlayerAA.lastOutgoing = memory->clientState->lastOutgoingCommand+1;
+					LocalPlayerAA.netset = true;
+					interfaces->engine->getNetworkChannel()->OutSequenceNr = 150;
+					memory->clientState->lastOutgoingCommand = 150;
+					
+				}
+			}
+			else if (LBY_UPDATE(localPlayer.get(), 1, false) && !config->antiAim.disableLBYbreaking && config->antiAim.preBreak) { /* Pre-Break */
+								float v3;
+				if (config->antiAim.v3 == -1) {
+					v3 = localPlayer->getMaxDesyncAngle();
+				}
+				else {
+					v3 = config->antiAim.v3;
+				} 
+
+
+				float real = LocalPlayerAA.real.y - (config->antiAim.v5 * (config->antiAim.v2 + (v3 * (side ? 1 : -1))));
+				cmd->viewangles.y = real + ((120-config->antiAim.v1) * (side ? 1 : -1));
+				LocalPlayerAA.PreBreakAngle = ((120 - config->antiAim.v1) * (side ? 1 : -1));
+
+
+			} else {
 				if (AntiAim::lbyNextUpdatedPrevtick && !AntiAim::lbyNextUpdated && config->antiAim.forcesendafterLBY) {
 					sendPacket = true;
 				}
@@ -483,10 +528,15 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 					// (localPlayer->getMaxDesyncAngle() * (side ? 1 : -1))
 					cmd->viewangles.y = LocalPlayerAA.real.y - (config->antiAim.v5 * (config->antiAim.v2 + (v3 * (side ? 1 : -1))));
 
+					if ((config->antiAim.v4 < 50) && (config->antiAim.v1 < 50)) {
+						float val = (120 - (config->antiAim.v5 + config->antiAim.v1)); /* v1 Takes Priority */
+						cmd->viewangles.y = LocalPlayerAA.real.y + ((val + config->antiAim.v5) * (side ? 1 : -1));
+						LocalPlayerAA.PreBreakAngleFake = ((val + config->antiAim.v4) * (side ? 1 : -1)) * -1;
+					}
 
 				}
 				else if (!b_sendPacket || (Misc::LastSend == 1) ) {
-					cmd->viewangles.y = LocalPlayerAA.real.y - (config->antiAim.v4 * (side ? 1 : -1));
+						cmd->viewangles.y = LocalPlayerAA.real.y - (config->antiAim.v4 * (side ? 1 : -1));
 				}
 
 			}
@@ -592,15 +642,7 @@ void AntiAim::run(UserCmd* cmd, const Vector& previousViewAngles, const Vector& 
 			}
 		}
 		*/
-		if (config->antiAim.micromove) {
-			if (!(config->antiAim.general.fakeWalk.enabled) && (localPlayer->getVelocity().length2D() < 1.016f)) {
-				cmd->forwardmove = 0;
-				if (cmd->buttons & UserCmd::IN_DUCK)
-					cmd->sidemove = cmd->tickCount % 2 ? 3.25f : -3.25f;
-				else
-					cmd->sidemove = cmd->tickCount % 2 ? 1.01f : -1.01f;
-			}
-		}
+
 
 
     }
