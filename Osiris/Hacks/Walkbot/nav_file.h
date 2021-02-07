@@ -81,10 +81,10 @@ namespace nav_mesh {
 			return Vec;
 		}
 		
-
+		nav_area& get_area_by_id(std::uint32_t id);
+		nav_area& get_area_by_position(vec3_t position);
 	private:
-		nav_area& get_area_by_id( std::uint32_t id );
-		nav_area& get_area_by_position( vec3_t position );
+
 
 		std::unique_ptr< micropather::MicroPather > m_pather = nullptr;
 

@@ -45,6 +45,7 @@ namespace Misc
     void WalkBot(UserCmd* cmd) noexcept;
     void DoorSpam(UserCmd* cmd);
     void Airstuck(UserCmd* cmd);
+    void LagHack(UserCmd* cmd, bool& sendPacket);
     void PerfectShot(bool& sendPacket, UserCmd* cmd) noexcept;
     void AnimStateMonitor() noexcept;
     int removeRagdolls(UserCmd* cmd);

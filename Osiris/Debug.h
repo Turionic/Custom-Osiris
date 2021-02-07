@@ -6,6 +6,7 @@
 #include "Interfaces.h"
 #include "SDK/Engine.h"
 #include <deque>
+#include "SDK/Surface.h"
 enum class FrameStage;
 class GameEvent;
 struct UserCmd;
@@ -67,8 +68,8 @@ namespace Debug{
 	void ClientstateDebug();
 	void GlobalVarDebug();
 	void DrawGraphBox(coords start, coords end, float min_val, float max_val, float val, float ratio, std::wstring name);
-	bool SetupTextPos(std::vector <std::wstring>& Text);
-	void Draw_Text(std::vector <std::wstring> &Text);
+	bool SetupTextPos(std::vector <std::wstring>& Text, int Font = Surface::font);
+	void Draw_Text(std::vector <std::wstring> &Text, int Font = Surface::font);
 	void AnimStateMonitor() noexcept;
 	std::vector<std::wstring> formatRecord(Backtrack::Record record, Entity* entity, int index);
 

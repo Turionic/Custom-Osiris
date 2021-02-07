@@ -111,13 +111,22 @@ public:
 	std::byte		pad0[0x9C];
 	NetworkChannel* netChannel;
 	int				challengeNr;
-	std::byte		pad1[0x64];
+	std::byte		pad1[0x04];
+	double          m_connect_time;
+	int             m_retry_number;
+	std::byte		padgay[0x54];
 	int				signonState;
 	std::byte		pad2[0x8];
-	float			nextCmdTime;
+	float           nextCmdTime;
 	int				serverCount;
 	int				currentSequence;
-	std::byte		pad3[0x54];
+	char			pad99[8];
+	struct {
+		float		m_clock_offsets[16];
+		int			m_cur_clock_offset;
+		int			m_server_tick;
+		int			m_client_tick;
+	} m_clock_drift_mgr;
 	int				deltaTick;
 	bool			paused;
 	std::byte		pad4[0x7];
@@ -126,9 +135,12 @@ public:
 	char			levelName[260];
 	char			levelNameShort[80];
 	char			groupName[80];
-	std::byte		pad5[0x5C];
+	char			szLastLevelNameShort[80]; // 0x032C
+	std::byte		pad5[0xC];
 	int				maxClients;
-	std::byte		pad6[0x4984];
+	char pad_030C[4083];
+	uint32_t string_table_container;
+	char pad_1303[14737];
 	float			lastServerTickTime;
 	bool			InSimulation;
 	std::byte		pad7[0x3];
@@ -140,14 +152,47 @@ public:
 	int				lastCommandAck;
 	int				commandAck;
 	int				soundSequence;
-	std::byte		pad8[0x50];
+	//std::byte		pad8[0x50];
+	int                m_last_progress_percent;
+	bool            m_is_hltv;
+
+	std::byte padfuck[0x4B];
 	Vector			angViewPoint;
 	std::byte		pad9[0xD0];
 	EventInfo* pEvents;
 };
 
+
+
 class NetworkMessage
 {
 public:
-    VIRTUAL_METHOD(int, getType, 7, (), (this))
+	VIRTUAL_METHOD(void, SetNetChannel, 1, (NetworkChannel* netchann), (this, netchann))
+		VIRTUAL_METHOD(void, SetReliable, 2, (bool state), (this, state))
+		VIRTUAL_METHOD(bool, Process, 3, (), (this))
+		//VIRTUAL_METHOD(bool, ReadFromBuffer, 4, (bf_read* buffer), (this, buffer))
+		//VIRTUAL_METHOD(bool, WriteToBuffer, 5, (bf_write* buffer), (this, buffer))
+		VIRTUAL_METHOD(bool, IsReliable, 6, (), (this))
+		VIRTUAL_METHOD(int, getType, 7, (), (this))
+		VIRTUAL_METHOD(int, getGroup, 8, (), (this))
+		VIRTUAL_METHOD(const char*, getName, 9, (), (this))
+		VIRTUAL_METHOD(void*, getNetworkChannel, 10, (), (this))
+		VIRTUAL_METHOD(const char*, toString, 11, (), (this))
+};
+
+class NET_StringCmd : public NetworkMessage
+{
+	//DECLARE_NET_MESSAGE(StringCmd);
+
+	int	getGroup() const { return 5; } // NetMessageProto::NET_Messages::net_StringCmd; }
+
+	NET_StringCmd() { m_szCommand = NULL; };
+	NET_StringCmd(const char* cmd) { m_szCommand = cmd; };
+
+public:
+	const char* m_szCommand;	// execute this command
+
+private:
+	char		m_szCommandBuffer[1024];	// buffer for received messages
+
 };

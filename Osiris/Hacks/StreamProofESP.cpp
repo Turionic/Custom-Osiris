@@ -612,11 +612,12 @@ void StreamProofESP::bulletTracer(GameEvent* event) noexcept {
 
     if ((!(player == localPlayer.get())) && !config->visuals.stolenfromrifk.enabled) {
         return;
-    } else if ((player == localPlayer.get()) && !config->visuals.espbulletTracers.enabled){
+    }
+    else if ((player == localPlayer.get()) && !config->visuals.espbulletTracers.enabled) {
         return;
     }
-    
-    if (!player->isOtherEnemy(localPlayer.get()) && !(player == localPlayer.get())){
+
+    if (!player->isOtherEnemy(localPlayer.get()) && !(player == localPlayer.get())) {
         return;
     }
 
@@ -684,9 +685,10 @@ void StreamProofESP::bulletTracer(GameEvent* event) noexcept {
         ESPItemList.push_back(Line);
     }
     ESPItemList.push_back(Box);
-    
+
     return;
 }
+
 
 
 static void renderBox(const BoundingBox& bbox, const Box& config) noexcept

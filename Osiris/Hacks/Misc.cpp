@@ -1192,7 +1192,7 @@ void Misc::WillThisWork(UserCmd* cmd, bool &sendPacket) {
         }
     }
 }
-
+#include "../IEffects.h"
 
 void Misc::AttackIndicator(GameEvent* event) noexcept
 {
@@ -1209,10 +1209,12 @@ void Misc::AttackIndicator(GameEvent* event) noexcept
     damagedone = event->getInt("dmg_health");
     lastUpdate = memory->globalVars->realtime;
 
+    Entity* entity = interfaces->entityList->getEntity(interfaces->engine->getPlayerForUserID(event->getInt("userid")));
+    if (!entity || entity->isDormant() || !entity->isAlive())
+        return;
+
     if (config->visuals.HitSkeleton.enabled) {
-        Entity* entity = interfaces->entityList->getEntity(interfaces->engine->getPlayerForUserID(event->getInt("userid")));
-        if (!entity || entity->isDormant() || !entity->isAlive())
-            return;
+
 
         StreamProofESP::DrawItem Item;
 
@@ -1232,6 +1234,10 @@ void Misc::AttackIndicator(GameEvent* event) noexcept
         StreamProofESP::ESPItemList.push_back(Item);
     }
 
+
+
+
+    
     return;
 }
 bool set = false;
@@ -1239,9 +1245,91 @@ int in = 0;
 int out = 0;
 int outack = 0;
 
+
+bool flip = true;
+bool lastSend = false;
+
+void Misc::LagHack(UserCmd* cmd, bool& sendPacket) {
+
+    if (!config->debug.testLag)
+        return;
+
+    auto netchann = interfaces->engine->getNetworkChannel();
+
+    sendPacket = netchann->chokedPackets >= config->misc.chokedPackets;
+
+    bool lsS = lastSend;
+    if (lastSend) {
+        sendPacket = true;
+        lastSend = false;
+    }
+    else {
+        lastSend = sendPacket;
+    }
+
+    if (!netchann)
+        return;
+
+    bool SendP = sendPacket;
+
+    if (set && netchann && (SendP && !lsS)) {
+        netchann->InSequenceNr = in;
+        netchann->OutSequenceNr = out;
+        netchann->OutSequenceNrAck = outack;
+        set = false;
+    }
+
+
+
+    if (netchann && (!SendP || lsS)) {
+            if (set == false) {
+                in = netchann->InSequenceNr;
+                out = netchann->OutSequenceNr;
+                outack = netchann->OutSequenceNrAck;
+                set = true;
+            }
+            else {
+                if (config->debug.in) {
+                    // nan("")
+                    netchann->InSequenceNr = in - config->debug.netSub;
+                    //netchann->InSequenceNr = nan(" ");
+                    in++;
+                }
+                else {
+                    netchann->InSequenceNr = in;
+                    in = netchann->InSequenceNr + 1;
+                }
+
+
+
+                if (config->debug.out) {
+                    netchann->OutSequenceNr = out - config->debug.netSub;
+                    //netchann->OutSequenceNr = nan(" ");
+                    out++;
+                }
+                else {
+                    netchann->OutSequenceNr = out;
+                    out = netchann->OutSequenceNr + 1;
+                }
+
+                if (config->debug.outack) {
+                    netchann->OutSequenceNrAck = outack - config->debug.netSub;
+                    //netchann->OutSequenceNrAck = nan(" ");
+                    outack++;
+                }
+                else {
+                    netchann->OutSequenceNrAck = outack;
+                    outack = netchann->OutSequenceNrAck + 1;
+                }
+            }
+    }
+}
+
+
+
 void Misc::Airstuck(UserCmd* cmd) {
 
-    if (set && interfaces->engine->getNetworkChannel() && !config->debug.airstucktoggle) {
+    if (set && interfaces->engine->getNetworkChannel() && (!config->debug.airstucktoggle || (!flip))) {
         interfaces->engine->getNetworkChannel()->InSequenceNr = in;
         interfaces->engine->getNetworkChannel()->OutSequenceNr = out;
         interfaces->engine->getNetworkChannel()->OutSequenceNrAck = outack;
@@ -1252,11 +1340,25 @@ void Misc::Airstuck(UserCmd* cmd) {
         return;
 
 
+    if (!(cmd->tickCount % ((config->debug.netSub * 4)+1))) {
+        flip = !flip;
+    }
+
+    //cmd->impulse = nan(" ");
+    //cmd->weaponselect = nan(" ");
+    //cmd->weaponsubtype = nan(" ");
+
     if (config->debug.airstucktoggle){
+        //memory->clientState->challengeNr = nan(" ");
+        //memory->clientState->commandAck = nan(" ");
+        //memory->clientState->lastOutgoingCommand = INT_MAX;
+        //memory->clientState->lastCommandAck = nan(" ");
+
+
         //cmd->tickCount = INT_MAX;
         //cmd->commandNumber = INT_MAX;
         auto netchann = interfaces->engine->getNetworkChannel();
-        if (netchann) {
+        if (netchann && flip) {
             if (set == false) {
                 in = netchann->InSequenceNr;
                 out = netchann->OutSequenceNr;
@@ -1266,7 +1368,8 @@ void Misc::Airstuck(UserCmd* cmd) {
             else {
                 if (config->debug.in) {
                     // nan("")
-                    netchann->InSequenceNr = in - 10 ;
+                    netchann->InSequenceNr = in - config->debug.netSub;
+                    //netchann->InSequenceNr = nan(" ");
                     in++;
                 }
                 else {
@@ -1277,7 +1380,8 @@ void Misc::Airstuck(UserCmd* cmd) {
                 
 
                 if (config->debug.out) {
-                    netchann->OutSequenceNr = out - 10;
+                    netchann->OutSequenceNr = out - config->debug.netSub;
+                    //netchann->OutSequenceNr = nan(" ");
                     out++;
                 }
                 else {
@@ -1286,7 +1390,8 @@ void Misc::Airstuck(UserCmd* cmd) {
                 }
 
                 if (config->debug.outack) {
-                    netchann->OutSequenceNrAck = outack - 10;
+                    netchann->OutSequenceNrAck = outack - config->debug.netSub;
+                    //netchann->OutSequenceNrAck = nan(" ");
                     outack++;
                 }
                 else {
@@ -1298,10 +1403,10 @@ void Misc::Airstuck(UserCmd* cmd) {
 
 
         if (config->debug.Count) {
-            cmd->tickCount = nan("");
+           // cmd->tickCount = nan("");
         }
         if (config->debug.number) {
-            cmd->commandNumber = nan("");
+           // cmd->commandNumber = nan("");
         }
     }
 

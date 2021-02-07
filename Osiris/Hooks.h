@@ -37,6 +37,8 @@ public:
     HookType surface;
     HookType viewRender;
     HookType gameEventManager;
+    HookType gamemovement;
+
     VmtSwap networkChannel;
 
     HookType svCheats;

@@ -114,7 +114,7 @@ static std::wstring HitGroups[] = {
     L" Right Leg ",
     L" Gear " // lol
 };
-
+#include "IEffects.h"
 void Debug::Logger(GameEvent *event) {
 
     if (!config->debug.DamageLog.enabled)
@@ -143,7 +143,7 @@ void Debug::Logger(GameEvent *event) {
         std::wstring weapon = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(event->getString("weapon"));
 
         Debug::LogItem logEntry;
-        if (r_health > 0) {
+        if (/*r_health > 0*/ true) {
             logEntry.color = { (int)config->debug.DamageLog.color[0] * 255,(int)config->debug.DamageLog.color[1] * 255, (int)config->debug.DamageLog.color[2] * 255 };
         }
         else {
@@ -152,6 +152,26 @@ void Debug::Logger(GameEvent *event) {
         std::wstring text = {L"Hit " + playerName + L" for " + std::to_wstring(health) + L"hp in the" + HitGroups[event->getInt("hitgroup")] + L"with a " + weapon + L" || " + std::to_wstring(r_health) + L"hp remaining"};
         logEntry.text.push_back(text);
         logEntry.time_of_creation = memory->globalVars->realtime;
+
+
+
+
+        if ((event->getInt("hitgroup") == 1) || (r_health == 0)) {
+
+            //call this when you kill someone..or when you make a step..or when you steal a bike
+            CTeslaInfo teslaInfo;
+            teslaInfo.m_flBeamWidth = 10.f;
+            teslaInfo.m_flRadius = 500.f;
+            teslaInfo.m_nEntIndex = player->index();
+            teslaInfo.m_vColor = { 255.f, 1.f, 1.f }; //your value up to 255 / 255.f
+            teslaInfo.m_vPos = player->getBonePosition(8); //wherever you want it to spawn from, like enemy's head;
+            teslaInfo.m_flTimeVisible = 0.75f;
+            teslaInfo.m_nBeams = 12;
+            teslaInfo.m_pszSpriteName = "sprites/physbeam.vmt";
+
+            EffectFunction::TeslaFunc(teslaInfo);
+        }
+
 
         LOG_OUT.push_front(logEntry);
 
@@ -248,10 +268,11 @@ void Debug::PrintLog() {
         //    return;
         //}
 
-        interfaces->surface->setTextFont(Surface::font);
+        interfaces->surface->setTextFont(5);
         interfaces->surface->setTextColor(item.color[0], item.color[1], item.color[2], (1 - (((memory->globalVars->realtime - item.time_of_creation)) / 10.0f)) * 255);
         //SetupTextPos
         Draw_Text(item.text);
+        interfaces->surface->setTextFont(Surface::font);
     }
 
 
@@ -309,7 +330,7 @@ void Debug::DrawGraphBox(coords start, coords end, float min_val, float max_val,
 }
 
 
-bool Debug::SetupTextPos(std::vector <std::wstring>& Text) { // If true, can't draw anymore due to screen being full
+bool Debug::SetupTextPos(std::vector <std::wstring>& Text, int Font) { // If true, can't draw anymore due to screen being full
 
 	int pos_inc_h = 0;
 	int pos_inc_w = 0;
@@ -317,7 +338,7 @@ bool Debug::SetupTextPos(std::vector <std::wstring>& Text) { // If true, can't d
     for (int i = 0; i < Text.size(); i++) {
 
         std::wstring Str = Text[i];
-		const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Surface::font, Str.c_str());
+		const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Font, Str.c_str());
         textsize = text_size_h;
 		pos_inc_h += text_size_h;
 		pos_inc_w = text_size_w;
@@ -356,14 +377,14 @@ bool Debug::SetupTextPos(std::vector <std::wstring>& Text) { // If true, can't d
 
 }
 
-void Debug::Draw_Text(std::vector<std::wstring>& Text) {
+void Debug::Draw_Text(std::vector<std::wstring>& Text, int Font) {
 
 
     //std::wstring lolstr = { L"CurrPosH " + std::to_wstring(Screen.CurrPosH) + L" CurrPosW " + std::to_wstring(Screen.CurrPosW) };
     //interfaces->surface->setTextPosition(110, 110);
     //interfaces->surface->printText(lolstr.c_str());
 
-    if (SetupTextPos(Text)) {
+    if (SetupTextPos(Text, Font)) {
         return;
     }
 
@@ -372,7 +393,7 @@ void Debug::Draw_Text(std::vector<std::wstring>& Text) {
 
         std::wstring Str = Text[i];
 
-		const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Surface::font, Str.c_str());
+		const auto [text_size_w, text_size_h] = interfaces->surface->getTextSize(Font, Str.c_str());
 		Screen.CurrPosH += text_size_h;
 		interfaces->surface->setTextPosition(Screen.CurrPosW, Screen.CurrPosH);
 		interfaces->surface->printText(Str.c_str());

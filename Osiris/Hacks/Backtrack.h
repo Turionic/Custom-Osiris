@@ -44,6 +44,8 @@ namespace Backtrack {
         bool btTargeted = false;
         bool onshot = false;
         int countBones;
+        bool move = false;
+        bool noDesync = false;
     };
 
 

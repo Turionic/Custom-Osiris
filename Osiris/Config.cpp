@@ -286,6 +286,14 @@ static void from_json(const json& j, Config::Aimbot& a)
     read_number(j, "BiamKey", a.baimkey);
     read_number(j, "Biamshots", a.baimshots);
 
+
+    read_number(j, "multipointenabled", a.multipointenabled);
+    read_number(j, "multidistance", a.multidistance);
+    read<value_t::boolean>(j, "PrioritizeHeadOnNoDesync", a.PrioritizeHeadOnNoDesync);
+    read<value_t::boolean>(j, "OnShot", a.onshot);
+    read<value_t::boolean>(j, "Fire At LBY Updates", a.ShootForLBY);
+    read_number(j, "MinDamageVis", a.minDamageVis);
+
 }
 
 static void from_json(const json& j, Config::Triggerbot& t)
@@ -322,12 +330,25 @@ static void from_json(const json& j, Config::Backtrack& b)
 
 }
 
+#define READV(NUM) read<value_t::boolean>(j,#NUM, a.NUM);
 static void from_json(const json& j, Config::AntiAim& a)
 {
     read<value_t::boolean>(j, "Enabled", a.enabled);
     read<value_t::boolean>(j, "Pitch", a.pitch);
     read<value_t::boolean>(j, "Yaw", a.yaw);
     read_number(j, "Pitch angle", a.pitchAngle);
+
+
+    read_number(j, "ManYaw", a.manYaw);
+    read_number(j, "preBreak", a.preBreak);
+
+    READV(v1);
+    READV(v2);
+    READV(v3);
+    READV(v4);
+    READV(v5);
+    READV(v6);
+
 }
 
 static void from_json(const json& j, Config::Glow& g)
@@ -764,6 +785,19 @@ static void to_json(json& j, const Config::Aimbot& o, const Config::Aimbot& dumm
     WRITE("BiamKey", baimkey);
     WRITE("Biamshots", baimshots);
 
+    WRITE("multipointenabled", multipointenabled);
+    WRITE("multidistance", multidistance);
+
+
+    WRITE("MinDamageVis", minDamageVis);
+
+    WRITE("PrioritizeHeadOnNoDesync", PrioritizeHeadOnNoDesync);
+    WRITE("OnShot", onshot);
+    WRITE("Fire At LBY Updates", ShootForLBY);
+
+
+
+
 }
 
 static void to_json(json& j, const Config::Triggerbot& o, const Config::Triggerbot& dummy = {})
@@ -797,12 +831,26 @@ static void to_json(json& j, const Config::Backtrack& o, const Config::Backtrack
 
 }
 
+#define WRITEV(NUM) WRITE(#NUM,NUM);
 static void to_json(json& j, const Config::AntiAim& o, const Config::AntiAim& dummy = {})
 {
     WRITE("Enabled", enabled);
     WRITE("Pitch", pitch);
     WRITE("Pitch angle", pitchAngle);
     WRITE("Yaw", yaw);
+
+    WRITE("ManYaw", manYaw);
+    WRITE("prebreak", preBreak);
+    WRITEV(v1);
+    WRITEV(v2);
+    WRITEV(v3);
+    WRITEV(v4);
+    WRITEV(v5);
+    WRITEV(v6);
+
+
+
+
 }
 
 static void to_json(json& j, const Config::Glow& o, const Config::Glow& dummy = {})

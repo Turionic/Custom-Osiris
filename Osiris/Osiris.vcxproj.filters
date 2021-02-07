@@ -212,6 +212,9 @@
     <ClCompile Include="Grief.cpp">
       <Filter>Hacks</Filter>
     </ClCompile>
+    <ClCompile Include="DlightPlayer.cpp">
+      <Filter>Hacks</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GUI.h">
@@ -575,6 +578,12 @@
       <Filter>Hacks</Filter>
     </ClInclude>
     <ClInclude Include="Grief.h">
+      <Filter>Hacks</Filter>
+    </ClInclude>
+    <ClInclude Include="IEffects.h">
+      <Filter>SDK</Filter>
+    </ClInclude>
+    <ClInclude Include="DlightPlayer.h">
       <Filter>Hacks</Filter>
     </ClInclude>
   </ItemGroup>

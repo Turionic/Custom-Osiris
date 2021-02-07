@@ -32,7 +32,8 @@ class type* name = reinterpret_cast<type*>(find(L##module, version));
     GAME_INTERFACE(Sound, sound, "engine", "IEngineSoundClient003")
     GAME_INTERFACE(SoundEmitter, soundEmitter, "soundemittersystem", "VSoundEmitter003")
     GAME_INTERFACE(StudioRender, studioRender, "studiorender", "VStudioRender026")
-
+    GAME_INTERFACE(IEffects, ieffects, "client", "IEffects001")
+    GAME_INTERFACE(IVEffects, iveffects, "engine", "VEngineEffects001")
 #undef GAME_INTERFACE
 private:
     static void* find(const wchar_t* module, const char* name) noexcept

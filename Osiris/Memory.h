@@ -35,6 +35,9 @@ struct Vector;
 inline DWORD oCL_Move;
 typedef void(__cdecl* CL_MoveFn)(float&, bool&);
 
+
+inline LPVOID oCNET_SendNetMessage;
+
 class Memory {
 public:
     Memory() noexcept;
@@ -87,6 +90,9 @@ public:
     uintptr_t UpdateState;
     uintptr_t CreateState;
     uintptr_t InvalidateBoneCache;
+    uintptr_t CNetChan_SendNetMessage;
+
+
 
     ClientState* clientState;
     void* WriteUsercmdDeltaToBufferReturn;
@@ -101,6 +107,11 @@ public:
     Channel* channels;
 
     std::uintptr_t returnSequenceLocation();
+
+    static std::uintptr_t findPattern_ex(const wchar_t* module, const char* pattern) noexcept {
+        return findPattern(module, pattern);
+    }
+
 private:
     static std::uintptr_t findPattern(const wchar_t* module, const char* pattern) noexcept
     {

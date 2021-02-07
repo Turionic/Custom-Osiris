@@ -89,7 +89,7 @@ void Resolver::Reset(FrameStage stage) {
             return;
 
         
-
+        record->FiredUpon = false;
 
         Animstate->m_flGoalFeetYaw = record->ResolveInfo.Original.LBYAngle; /* Restore */
         entity->setAbsAngle(record->ResolveInfo.Original.ABSAngles);
@@ -197,9 +197,12 @@ void Resolver::Update() {
         if (!record)
             continue;
 
+        record->move = false;
+        record->noDesync = false;
+
         auto entity = interfaces->entityList->getEntity(i);
 
-        if (!entity || entity->isDormant() || !entity->isAlive() ||!entity->isOtherEnemy(localPlayer.get()) || entity == localPlayer.get()) { //  ((entity != localPlayer.get()) && 
+        if (!entity || !entity->isPlayer() || entity->isDormant() || !entity->isAlive() ||!entity->isOtherEnemy(localPlayer.get()) || entity == localPlayer.get()) { //  ((entity != localPlayer.get()) && 
             if (record->FiredUpon || record->wasTargeted) {
                 record->lastworkingshot = record->missedshots;
             }
@@ -363,23 +366,24 @@ void Resolver::AnimStateResolver(Entity* entity) {
 
     // __ MAKE INTO FUNCTION __
     config->debug.indicators.resolver = false;
-    if (!localPlayer || !localPlayer->isAlive() || !entity || entity->isDormant() || !entity->isAlive() || !entity->isOtherEnemy(localPlayer.get()))
+    if (!localPlayer || !localPlayer->isAlive() || !entity || !entity->isPlayer() || entity->isDormant() || !entity->isAlive() || !entity->isOtherEnemy(localPlayer.get()))
         return;
 
     if (PlayerRecords.empty())
         return;
 
+    std::wstring name = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entity->getPlayerName(true));
     auto record = &PlayerRecords.at(entity->index());
 
     if (!record || record->invalid) {
-        ResolverDebug(std::wstring{ L"[Resolver.cpp:321] Exiting, No record/invalid record" });
+        //ResolverDebug(std::wstring{ L"[Resolver.cpp:321] Exiting, No record/invalid record" });
         record->FiredUpon = false;
         return;
     }
 
 
     if (record->onshot) {
-        ResolverDebug(std::wstring{ L"[Resolver.cpp:314] Exiting, player onshot" });
+        ResolverDebug(std::wstring{ L"[Resolver.cpp:314] Exiting, player onshot [" + name + L"] -> " + std::to_wstring(memory->globalVars->currenttime) });
         record->FiredUpon = false;
         return;
     }
@@ -387,14 +391,14 @@ void Resolver::AnimStateResolver(Entity* entity) {
     auto Animstate = entity->getAnimstate();
 
     if (!Animstate) {
-        ResolverDebug(std::wstring{L"[Resolver.cpp:321] Exiting, No anim state"});
+        ResolverDebug(std::wstring{L"[Resolver.cpp:321] Exiting, No anim state [" + name + L"] -> " + std::to_wstring(memory->globalVars->currenttime) });
         record->FiredUpon = false;
         return;
     }
 
     auto AnimLayerThree = entity->getAnimationLayer(3);
     if (!AnimLayerThree) {
-        ResolverDebug(std::wstring{ L"[Resolver.cpp:321] Exiting, No AnimLayerThree was set" });
+        ResolverDebug(std::wstring{ L"[Resolver.cpp:321] Exiting, No AnimLayerThree was set [" + name + L"] -> " + std::to_wstring(memory->globalVars->currenttime) });
         record->FiredUpon = false;
         return;
     }
@@ -408,6 +412,7 @@ void Resolver::AnimStateResolver(Entity* entity) {
     bool hasDesyncHadTimeToDesync = false;
     bool PresumedNoDesync = false;
     bool move = true;
+    //bool btFLAG = false;
     float DesyncFrac = 1.0f;
     if ((Velocity < 140) && (Animstate->m_flTimeSinceStartedMoving <= 1.2f)) {
         if (Animstate->m_flTimeSinceStartedMoving <= 1.2f) {
@@ -431,6 +436,16 @@ void Resolver::AnimStateResolver(Entity* entity) {
     }
 
     record->noDesync = PresumedNoDesync;
+    record->move = move;
+
+
+    if (PresumedNoDesync || move) {
+        std::deque<Backtrack::Record>* bt_record = &(Backtrack::records[entity->index()]);
+        if (bt_record && !bt_record->empty()) {
+            bt_record->front().move = record->move;
+            bt_record->front().noDesync = record->noDesync;
+        }
+    }
 
 
     if ((record->ResolveInfo.prevSimTime != entity->simulationTime()) && (entity->eyeAngles().y != record->ResolveInfo.Original.EyeAngles.y)) { /* On Character Update */
@@ -489,23 +504,14 @@ void Resolver::AnimStateResolver(Entity* entity) {
 
 
     if (!(hasDesyncHadTimeToDesync || hasDesyncHadTimeToLBY) && PresumedNoDesync) {
-        ResolverDebug(std::wstring{ L"[Resolver.cpp:459] Exiting, Presumed No Desync" });
+        ResolverDebug(std::wstring{ L"[Resolver.cpp:459] Exiting, Presumed No Desync [" + name + L"] -> " + std::to_wstring(memory->globalVars->currenttime) });
         record->FiredUpon = false;
         return;
     }
-    //if (!record->lbyUpdated) {
-        //if (!record->wasTargeted || !record->FiredUpon) {
-            //if (!record->FiredUpon && record->wasTargeted) {
-             //   ResolverDebug(std::wstring{ L"[Resolver.cpp:380] Exiting, Not FiredUpon/Targeted/Lby Updated" });
-            //}
-            //return;
-        //}
-    //}
-    
 
     if (!record->ResolveInfo.Original.Set) {
         record->FiredUpon = false;
-        ResolverDebug(std::wstring{ L"[Resolver.cpp:392] Exiting, ResolveInfo.Original.Set == false" });
+        ResolverDebug(std::wstring{ L"[Resolver.cpp:392] Exiting, ResolveInfo.Original.Set == false [" + name + L"] -> " + std::to_wstring(memory->globalVars->currenttime)});
         return;
     }
 
@@ -527,8 +533,7 @@ void Resolver::AnimStateResolver(Entity* entity) {
         entity->UpdateState(Animstate, entity->eyeAngles());
         if (record->wasTargeted) {
             Debug::LogItem item;
-            item.PrintToScreen = false;
-            std::wstring name = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entity->getPlayerName(true));
+            item.PrintToScreen = false;           
             //item.text.push_back(L" ");
             //item.text.push_back(L" ");
             item.text.push_back(std::wstring{ L"[Resolver] Assumed LBY Update for " + name + L" at current time " + std::to_wstring(memory->globalVars->currenttime) + L" setting Angles to " + std::to_wstring(DesyncAng) });
@@ -647,7 +652,7 @@ void Resolver::AnimStateResolver(Entity* entity) {
         entity->UpdateState(Animstate, entity->eyeAngles());
 
         record->ResolveInfo.ResolveAddition.ABSAngles = { 0, DesyncAng, 0 };
-        record->ResolveInfo.ResolveAddition.EyeAngles = { 0, DesyncAng, 0 };//= { 0, DesyncAng, 0 };
+        record->ResolveInfo.ResolveAddition.EyeAngles = { 0, 0, 0 };//= { 0, DesyncAng, 0 };
         record->ResolveInfo.ResolveAddition.LBYAngle = DesyncAng;
 
         record->ResolveInfo.CurrentSet.Set = true;

@@ -70,7 +70,12 @@ public:
         bool showshots{ false };
         bool aimbotcoutdebug{ false };
         bool airstucktoggle{ false };
+        bool airstuckprovmove{ false };
+        bool procmovereturn{ false };
+        bool testLag{ false };
 
+
+        int netSub{ 10 };
         bool in{ false };
         bool out{ false };
         bool outack{ false };
@@ -89,10 +94,10 @@ public:
 
         struct {
 
-            bool enabled{ false };
+            bool enabled{ true };
             struct {
-                bool enabled{ false };
-                bool basicResolver{ false };
+                bool enabled{ true };
+                bool basicResolver{ true };
                 bool overRide{ false };
                 int missed_shots{ 0 };
                 int missedoffset{ 0 };
@@ -114,7 +119,7 @@ public:
         bool ResolverRecords{ false };
         bool TargetOnly{ false };
         bool TraceLimit{ false };
-        bool AnimModifier{ false };
+        bool AnimModifier{ true };
         float GoalFeetYaw{ 0.0f };
         float Pitch{ 0.0f };
         float Yaw{ 0.0f };
@@ -169,8 +174,8 @@ public:
         float hitChance{ 0.0f };
         float maxTriggerInaccuracy{ 0.0f };
         bool autoStop{ 0 };
-        bool oldstyle{ true };
-        bool optimize{ true };
+        bool oldstyle{ false };
+        bool optimize{ false };
         bool baim{ false };
         int baimkey{ 0 };
         int pointstoScan{ 200 };
@@ -207,7 +212,7 @@ public:
         bool ShootForLBY{ false };
         bool prioritizeEventBT{ false };
         bool PrioritizeHeadOnNoDesync{false};
-
+        bool OnshotOrDesyncless{ false };
     };
     std::array<Aimbot, 40> aimbot;
 
@@ -421,7 +426,9 @@ public:
         ColorToggle NonCached;
         ColorToggle smokecolor;
         ColorToggle NightMode; //ambient light
-
+        ColorToggle dlight;
+        float dlightRadius{ 300.f };
+        int dlightExponent{ 5 };
         /*End Of Renderables Window*/
 
         bool matgrey{ false };
@@ -542,7 +549,8 @@ public:
         int killSound{0};
         bool showall{false};
         int maxSpeed{0};
-
+        bool svpurebypass{ false };
+        bool ForceSpectator{ false };
         struct {
             bool enabled = { false };
             bool toggled = { false };

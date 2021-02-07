@@ -805,7 +805,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
     bool visFound = false;
     for (int i = 1; i <= interfaces->engine->getMaxClients(); i++) {
         auto entity = interfaces->entityList->getEntity(i);
-        if (!entity || (entity == localPlayer.get()) || entity->isDormant() || !entity->isAlive()
+        if (!entity || !entity->isPlayer() || (entity == localPlayer.get()) || entity->isDormant() || !entity->isAlive()
             || (!entity->isOtherEnemy(localPlayer.get()) && !config->aimbot[weaponIndex].friendlyFire) || entity->gunGameImmunity()) {
             Resolver::PlayerRecords.at(i).wasTargeted = false;
             continue;
@@ -910,7 +910,7 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
 
         
 
-        if (config->backtrack.enabled && !brecord->empty() && (brecord->size() > 0) && Backtrack::valid(brecord->front().simulationTime) && (enemy.wasTargeted /*|| Backtrack::ImportantTick(*brecord)*/)) { // Sanity // 
+        if ( config->backtrack.enabled && !brecord->empty() && (brecord->size() > 0) && Backtrack::valid(brecord->front().simulationTime) && (enemy.wasTargeted /*|| Backtrack::ImportantTick(*brecord)*/)) { // Sanity // 
 
             bool ImportantTick = Backtrack::ImportantTick(*brecord);
             if ((!enemy.isVisible || ImportantTick /*|| (enemy.entity_ptr->velocity().length2D() > 170.0f)*/)){ // if Enemy isn't visible, or their velocity is  > 100, we go for bt
@@ -1246,6 +1246,14 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
             };
         }
 
+        if (config->aimbot[weaponIndex].OnshotOrDesyncless && (!enemy.onshot || !record->noDesync || !record->move)) {
+            Hitboxes = {
+                Multipoints::HITBOX_ABDOMEN,
+                Multipoints::HITBOX_PELVIS,
+            };
+        }
+
+
         if (Hitboxes.empty()) {
             continue;
         }
@@ -1369,7 +1377,9 @@ void Aimbot::run(UserCmd* cmd, int& bestDamage_save, int& bestHitchance, Vector&
             minDamage = enemy.health + 5;
         }
 
-
+        if (config->aimbot[weaponIndex].OnshotOrDesyncless && (!enemy.onshot || !record->noDesync || !record->move)) {
+            minDamage = enemy.health + 10;
+        }
         for (int l = 0; l <= 1; l++) { /* For Velo Point Sort*/
             std::vector<int>Points_Sp;
             if (Points.size() == 1) {

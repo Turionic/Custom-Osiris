@@ -161,6 +161,39 @@ static int __fastcall SendDatagram(NetworkChannel* network, void* edx, void* dat
     return result;
 }
 
+
+typedef bool(__thiscall* SendNetMessageFunc)(void*, void*, bool, bool);
+static bool __fastcall SendNetMsg(void* networkchannel, void* edx, NetworkMessage& msg, bool bForceReliable, bool bVoice) /* thx @notgoodusename */
+{
+    //auto original = hooks->networkChannel.getOriginal<bool, NetworkMessage&, bool, bool>(40, msg, bForceReliable, bVoice);
+
+
+    static bool hasHeldBack{ false };
+    if ((msg.getType() == 5) && config->misc.ForceSpectator) {
+
+        NET_StringCmd* stringcmd = reinterpret_cast<NET_StringCmd*>(&msg);
+
+        if (strstr(stringcmd->m_szCommand, "joingame")) {
+            return true;
+            hasHeldBack = true;
+        }
+    }
+    else if (hasHeldBack) {
+        interfaces->engine->clientCmdUnrestricted("joingame");
+        hasHeldBack = false;
+    }
+
+    if ((msg.getGroup() == 9) || (msg.getType() == 10)) {
+        bVoice = true;
+    }
+
+
+    if (msg.getType() == 14 && config->misc.svpurebypass) // Return and don't send messsage if its FileCRCCheck
+        return false;
+
+    return ((SendNetMessageFunc)oCNET_SendNetMessage)(networkchannel, &msg, bForceReliable, bVoice);
+}
+#include "DlightPlayer.h"
 static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
 {
 
@@ -221,9 +254,13 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
         oldPointer = network;
         Backtrack::UpdateIncomingSequences(true);
         hooks->networkChannel.init(network);
+        //hooks->networkChannel.hookAt(40, SendNetMsg);
         hooks->networkChannel.hookAt(46, SendDatagram);
+
     }
     Backtrack::UpdateIncomingSequences();
+
+    Player_Dlight::SetupLights();
 
     EnginePrediction::run(cmd);
 
@@ -255,7 +292,7 @@ static bool __stdcall createMove(float inputSampleTime, UserCmd* cmd) noexcept
     Misc::chokePackets(cmd, sendPacket);
 
     Misc::Airstuck(cmd);
-
+    Misc::LagHack(cmd,sendPacket);
     Backtrack::run(cmd);
 
     if ((cmd->buttons & UserCmd::IN_ATTACK) && (interfaces->engine->getNetworkChannel()->chokedPackets < 2))
@@ -393,6 +430,17 @@ static void __stdcall frameStageNotify(FrameStage stage) noexcept
     if (stage == FrameStage::START)
         GameData::update();
 
+
+    if (stage == FrameStage::NET_UPDATE_POSTDATAUPDATE_START) {
+        Resolver::Update();
+        Debug::AnimStateModifier();
+        Animations::players();
+    }
+
+    if (stage == FrameStage::NET_UPDATE_POSTDATAUPDATE_END) {
+    }
+
+
     if (stage == FrameStage::RENDER_START) {
         Misc::disablePanoramablur();
         Visuals::colorWorld();
@@ -401,10 +449,8 @@ static void __stdcall frameStageNotify(FrameStage stage) noexcept
         Misc::fakePrime();
         Animations::real();
     }
-    if (interfaces->engine->isInGame()) {
-        Animations::players();
-        Resolver::Update();
-        Debug::AnimStateModifier();
+
+    if (interfaces->engine->isInGame()) {     
         Visuals::skybox(stage);
         Visuals::removeBlur(stage);
         Visuals::removeGrass(stage);
@@ -787,6 +833,34 @@ static bool __fastcall WriteUsercmdDeltaToBuffer(void* ecx, void* edx, int slot,
 
     return true;
 }
+#include "SDK/GameMovement.h"
+
+static void __stdcall procmovement_hk(Entity* ply, MoveData* mv) noexcept
+{
+    if (config->debug.airstucktoggle && config->debug.airstuckprovmove && (ply == localPlayer.get()))
+    {
+        if (config->debug.procmovereturn)
+            return;
+
+        mv->m_outStepHeight = -1.0; // Gets you a "Permanently Untrusted" ban immediatly.
+    }
+
+    /* I bit the meme and went through going into ida + click4dylans githuv to correctly hook this and have correct classes for CGameMovement and CMoveData so i could test this out.
+       Turns out this just halts the game. Damn.
+       
+     Addendum::
+
+     Turns out this does work, its just clientsided only. So fuck that i wanna spawn in the opposing side's spawn.
+       
+    */
+
+
+
+    hooks->gamemovement.callOriginal<void, 1>(ply, mv);
+    return;
+    //interfaces->gameMovement->processMovement(ply, mv);
+}
+
 
 //void __cdecl
 static void __fastcall CL_Move(void* ecx, void* edx, float accumulated_extra_samples, bool bFinalTick)
@@ -834,6 +908,7 @@ void Hooks::install() noexcept
     surface.init(interfaces->surface);
     svCheats.init(interfaces->cvar->findVar("sv_cheats"));
     viewRender.init(memory->viewRender);
+    gamemovement.init(interfaces->gameMovement);
     //clMove.init(memory->CL_MoveCall);
     
 
@@ -861,6 +936,24 @@ void Hooks::install() noexcept
     svCheats.hookAt(13, svCheatsGetBool);
     viewRender.hookAt(39, render2dEffectsPreHud);
     viewRender.hookAt(41, renderSmokeOverlay);
+    //gamemovement.hookAt(1, procmovement_hk);
+
+
+    if (MH_CreateHook(reinterpret_cast<LPVOID*>(memory->CNetChan_SendNetMessage), &SendNetMsg,
+        reinterpret_cast<LPVOID*>(&oCNET_SendNetMessage)) != MH_OK) {
+
+        if (MH_DisableHook(reinterpret_cast<LPVOID*>(memory->CNetChan_SendNetMessage)) != MH_OK)
+        {
+
+        }
+        else {
+
+        }
+    }
+    else {
+
+    }
+
 
     if (DWORD oldProtection; VirtualProtect(memory->dispatchSound, 4, PAGE_EXECUTE_READWRITE, &oldProtection)) {
         originalDispatchSound = decltype(originalDispatchSound)(uintptr_t(memory->dispatchSound + 1) + *memory->dispatchSound);

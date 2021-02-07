@@ -167,6 +167,9 @@ void GUI::renderRenderablesWindow(bool contentOnly) noexcept {
     ImGuiCustom::colorPicker("Bullet Tracers", config->visuals.bulletTracers);
     ImGuiCustom::colorPicker("Enemy Bullet Tracers", config->visuals.bulletTracersEnemy);
     ImGui::SliderInt("Bullet Beam Segs", &config->visuals.beamseg, 2, 40);
+    ImGuiCustom::colorPicker("Player Dlights", config->visuals.dlight);
+    ImGui::SliderFloat("Dlight Radius", &config->visuals.dlightRadius, 1.f, 900.f);
+    ImGui::SliderInt("Dlight Color Exponent", &config->visuals.dlightExponent, 1.f, 900.f);
     ImGui::Text("--- Custom ImGui ESP --- ");
     ImGuiCustom::colorPicker("ESP Bullet Hits", config->visuals.espbulletTracers);
     ImGuiCustom::colorPicker("Draw Skeleton On Hit", config->visuals.HitSkeleton);
@@ -473,7 +476,10 @@ void GUI::renderDebugWindow(bool contentOnly) noexcept
     ImGui::Checkbox("tickCount", &config->debug.Count);
     ImGui::Checkbox("tickNumber", &config->debug.number);
     ImGui::Checkbox("Invalidate in Write Delta Buffer", &config->debug.writedeltastuck);
-    
+    ImGui::InputInt("Net Sub", &config->debug.netSub);
+    ImGui::Checkbox("Test Lag Shit", &config->debug.testLag);
+    ImGui::Checkbox("Airstuck in ProcessMovement Hook (Insta VAC)",&config->debug.airstuckprovmove);
+    ImGui::Checkbox("Returned from ProcessMovement", &config->debug.procmovereturn);
     /* OUT */
 
 
@@ -646,6 +652,7 @@ void GUI::renderAimbotWindow(bool contentOnly) noexcept
     }
     if (ImGui::BeginPopup("##resolvepop")) {
         ImGui::Checkbox("Prioritize Head On NoDesync Player Flag", &config->aimbot[currentWeapon].PrioritizeHeadOnNoDesync);
+        ImGui::Checkbox("Only NoDesync/OnShot/Kill", &config->aimbot[currentWeapon].OnshotOrDesyncless); 
         ImGui::EndPopup();
     }
     ImGui::PopID();
@@ -1802,6 +1809,7 @@ void GUI::renderMiscWindow(bool contentOnly) noexcept
     ImGui::SameLine();
     hotkey(config->misc.menuKey);
 
+    ImGui::Checkbox("Force Spectator On Join", &config->misc.ForceSpectator);
     ImGui::Checkbox("Anti AFK kick", &config->misc.antiAfkKick);
     ImGui::Checkbox("Auto strafe", &config->misc.autoStrafe);
     ImGui::Checkbox("Bunny hop", &config->misc.bunnyHop);
@@ -1928,6 +1936,7 @@ void GUI::renderMiscWindow(bool contentOnly) noexcept
         hotkey(config->misc.CounterKey);
 
     ImGui::Checkbox("Door Spam", &config->misc.doorspam);
+    ImGui::Checkbox("SV_PURE Bypass", &config->misc.svpurebypass);
     ImGui::Checkbox("Purchase List", &config->misc.purchaseList.enabled);
     ImGui::SameLine();
 

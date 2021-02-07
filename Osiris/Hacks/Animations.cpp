@@ -154,7 +154,7 @@ void Animations::players() noexcept
     for (int i = 1; i <= interfaces->engine->getMaxClients(); i++)
     {
         auto entity = interfaces->entityList->getEntity(i);
-        if (!entity || entity == localPlayer.get() || entity->isDormant() || !entity->isAlive() || !entity->getAnimstate() || !entity->isOtherEnemy(localPlayer.get()))
+        if (!entity || !entity->isPlayer() || entity == localPlayer.get() || entity->isDormant() || !entity->isAlive() || !entity->getAnimstate() || !entity->isOtherEnemy(localPlayer.get()))
             continue;
 
         if (!data.player[i].once)
@@ -171,8 +171,12 @@ void Animations::players() noexcept
         if (data.player[i].networked_layers.empty())
             std::memcpy(&data.player[i].networked_layers, entity->animOverlays(), sizeof(AnimationLayer) * entity->getAnimationLayerCount());
 
+        while (entity->getAnimstate()->m_flLastClientSideAnimationUpdateTime == memory->globalVars->currenttime)
+            entity->getAnimstate()->m_flLastClientSideAnimationUpdateTime -= memory->globalVars->intervalPerTick;
         while (entity->getAnimstate()->m_iLastClientSideAnimationUpdateFramecount == memory->globalVars->framecount)
             entity->getAnimstate()->m_iLastClientSideAnimationUpdateFramecount -= 1;
+
+
         entity->InvalidateBoneCache();
         memory->setAbsOrigin(entity, entity->origin());
         *entity->getEffects() &= ~0x1000;

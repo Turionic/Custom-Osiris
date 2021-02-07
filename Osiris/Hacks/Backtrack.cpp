@@ -79,6 +79,8 @@ void Backtrack::update(FrameStage stage) noexcept
                 if (r_record && !r_record->invalid) {
                     record.lbyUpdated = r_record->lbyUpdated;
                     record.onshot = r_record->onshot;
+                    record.move = r_record->move;
+                    record.noDesync = r_record->noDesync;
                 }
             }
 

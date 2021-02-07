@@ -65,6 +65,7 @@ namespace Resolver {
         int missedshotsthisinteraction = 0;
         int totalshots = 0;
         bool noDesync = false;
+        bool move = false;
         std::deque<shotdata> shots;
         LBYResolveBackup lbybackup;
         ResolveBackupData ResolveInfo;

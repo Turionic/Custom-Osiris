@@ -68,6 +68,13 @@ Memory::Memory() noexcept
     WriteUsercmdDeltaToBufferReturn = *(reinterpret_cast<void**>(findPattern(L"engine", "\x84\xC0\x74\x04\xB0\x01\xEB\x02\x32\xC0\x8B\xFE\x46\x3B\xF3\x7E\xC9\x84\xC0\x0F\x84????")));
 
 
+
+    CNetChan_SendNetMessage = findPattern(L"engine", "\x55\x8B\xEC\x83\xEC\x08\x56\x8B\xF1\x8B\x86????\x85\xC0");
+
+
+
+
+
     WriteUsercmd = findPattern(L"client", "\x55\x8B\xEC\x83\xE4\xF8\x51\x53\x56\x8B\xD9\x8B\x0D");
 
     localPlayer.init(*reinterpret_cast<Entity***>(findPattern(L"client", "\xA1????\x89\x45\xBC\x85\xC0") + 1));
